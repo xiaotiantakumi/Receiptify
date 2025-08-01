@@ -1,0 +1,22 @@
+{
+    "name": "pwa-starter-api",
+    "version": "1.0.0",
+    "description": "Azure Functions API for PWA Starter Template",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w",
+        "prestart": "npm run build",
+        "start": "func start",
+        "test": "echo \"No tests yet...\""
+    },
+    "dependencies": {
+        "@azure/functions": "^4.0.0"
+    },
+    "devDependencies": {
+        "@types/jsdom": "^21.1.6",
+        "@types/node": "^20.11.24",
+        "azure-functions-core-tools": "^4.0.0",
+        "typescript": "^5.3.3"
+    }
+}
