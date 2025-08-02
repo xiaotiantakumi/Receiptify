@@ -36,12 +36,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-api/node_modules
-api/.next
-api/out
-api/build
-api/dist
-api/local.settings.json
+**/node_modules
+**/.next
+**/out
+**/build
+**/dist
+**/local.settings.json
 # temporary files and directories
 tmp/*
 !tmp/.gitkeep

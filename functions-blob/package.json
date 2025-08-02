@@ -1,0 +1,30 @@
+{
+  "name": "receiptify-blob-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions with Blob Triggers for Receiptify - Receipt Processing",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prestart": "npm run build",
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.1",
+    "@azure/functions": "^4.0.0",
+    "@azure/storage-blob": "^12.28.0",
+    "@google/generative-ai": "^0.24.1",
+    "@types/uuid": "^10.0.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^20.11.24",
+    "azure-functions-core-tools": "^4.0.0",
+    "typescript": "^5.3.3"
+  }
+}

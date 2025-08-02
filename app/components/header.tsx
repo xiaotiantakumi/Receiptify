@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import { login, logout } from '@/lib/auth';
+import ApiStatus from './api-status';
 
 interface HeaderProps {
   title?: string;
@@ -34,6 +35,7 @@ export default function Header({
         </div>
 
         <div className="flex items-center space-x-4">
+          <ApiStatus />
           {loading ? (
             <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
           ) : user ? (

@@ -1,5 +1,4 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { BlobServiceClient } from '@azure/storage-blob';
+import { app, InvocationContext, StorageBlobHandler } from '@azure/functions';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveReceiptResult } from '../lib/table-storage';
 
@@ -86,55 +85,28 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
   }
 }
 
-export async function processReceipt(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, context: InvocationContext): Promise<void> => {
+  const blobName = context.triggerMetadata?.name as string;
+  const containerName = context.triggerMetadata?.uri as string;
+  
+  if (!blobName || !containerName) {
+    context.error('Missing blob metadata');
+    return;
+  }
+
+  context.log(`Processing receipt: ${blobName} in container: ${containerName}`);
+
+  // Blob名からreceiptIdとユーザー情報を抽出
+  const receiptId = blobName.split('.')[0]; // ファイル名（拡張子なし）をreceiptIdとして使用
+  // ファイル名からユーザーIDを抽出（例: user123_receipt1.jpg -> user123）
+  const userId = blobName.split('_')[0];
+
+  if (!userId) {
+    context.error('Unable to extract user ID from blob name');
+    return;
+  }
+
   try {
-    const body = await request.json() as any;
-    const { blobName, userId } = body;
-
-    if (!blobName || !userId) {
-      return {
-        status: 400,
-        jsonBody: { error: 'Missing blobName or userId' }
-      };
-    }
-
-    context.log(`Processing receipt: ${blobName} for user: ${userId}`);
-
-    // Azure Blob Storageからファイルを取得
-    const blobServiceClient = BlobServiceClient.fromConnectionString(
-      process.env.AZURE_STORAGE_CONNECTION_STRING || ''
-    );
-    const containerClient = blobServiceClient.getContainerClient(
-      process.env.RECEIPT_CONTAINER_NAME || 'receipts'
-    );
-    const blobClient = containerClient.getBlobClient(blobName);
-
-    // Blobが存在するかチェック
-    const exists = await blobClient.exists();
-    if (!exists) {
-      return {
-        status: 404,
-        jsonBody: { error: 'Receipt image not found' }
-      };
-    }
-
-    // ファイルをダウンロード
-    const downloadResponse = await blobClient.download();
-    const streamToBuffer = async (readableStream: NodeJS.ReadableStream): Promise<Buffer> => {
-      return new Promise((resolve, reject) => {
-        const chunks: Buffer[] = [];
-        readableStream.on('data', (data) => {
-          chunks.push(data instanceof Buffer ? data : Buffer.from(data));
-        });
-        readableStream.on('end', () => {
-          resolve(Buffer.concat(chunks));
-        });
-        readableStream.on('error', reject);
-      });
-    };
-
-    const imageBuffer = await streamToBuffer(downloadResponse.readableStreamBody!);
-
     // ファイル形式を推定
     const extension = blobName.split('.').pop()?.toLowerCase();
     let mimeType = 'image/jpeg';
@@ -157,11 +129,9 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
     context.log(`Analyzing receipt with Gemini API...`);
     
     // Gemini APIで解析
-    const analysisResult = await analyzeReceiptWithGemini(imageBuffer, mimeType);
+    const analysisResult = await analyzeReceiptWithGemini(blob as Buffer, mimeType);
     
     context.log(`Analysis completed. Found ${analysisResult.items.length} items.`);
-
-    const receiptId = blobName.split('.')[0];
 
     // 結果をTable Storageに保存
     await saveReceiptResult(userId, receiptId, {
@@ -175,33 +145,26 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
     });
 
     context.log(`Receipt processing completed successfully: ${receiptId}`);
-
-    return {
-      status: 200,
-      jsonBody: {
-        message: 'Receipt processed successfully',
-        receiptId,
-        itemCount: analysisResult.items.length,
-        totalAmount: analysisResult.totalAmount,
-        receiptDate: analysisResult.receiptDate
-      }
-    };
-
   } catch (error: any) {
-    context.error('Error processing receipt:', error);
+    context.log(`Error processing receipt ${receiptId}:`, error);
     
-    return {
-      status: 500,
-      jsonBody: {
-        error: 'Internal server error',
-        message: error.message
-      }
-    };
+    // エラー情報をTable Storageに保存
+    try {
+      await saveReceiptResult(userId, receiptId, {
+        status: 'failed',
+        errorMessage: error.message || 'Unknown error occurred',
+        receiptImageUrl: blobName,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    } catch (saveError: any) {
+      context.log('Error saving error status:', saveError);
+    }
   }
 }
 
-app.http('processReceipt', {
-  methods: ['POST'],
-  authLevel: 'anonymous',
-  handler: processReceipt,
+app.storageBlob('processReceiptBlob', {
+  path: 'receipts/{name}',
+  connection: 'AZURE_STORAGE_CONNECTION_STRING',  
+  handler: processReceiptBlob,
 });

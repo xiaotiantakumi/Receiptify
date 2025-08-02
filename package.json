@@ -9,12 +9,15 @@
     "lint": "next lint",
     "swa": "swa start out --api-location api",
     "swa:dev": "swa start --config swa-cli.config.json",
-    "swa:all": "swa start http://localhost:3000 --api-location ./api --api-port 7071 --run \"npm run dev\" --api-devserver-url http://localhost:7071",
+    "swa:all": "swa start http://localhost:3000 --api-location api --run \"npm run dev\"",
     "swa:build": "npm run build && cd api && npm run build",
-    "api:start": "cd api && npm run start"
+    "api:start": "cd api && npm run start",
+    "build:api": "cd api && npm run build",
+    "dev:with-api": "npm run build:api && swa start http://localhost:3000 --api-location api --run \"npm run dev\""
   },
   "dependencies": {
     "autoprefixer": "^10.4.21",
+    "cross-env": "^10.0.0",
     "next": "14.2.31",
     "next-pwa": "^5.6.0",
     "react": "^18",
@@ -26,6 +29,7 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.31",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-promise": "^7.2.1",
     "eslint-plugin-tailwindcss": "^3.18.2",
