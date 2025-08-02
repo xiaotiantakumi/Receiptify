@@ -2,22 +2,20 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { BlobServiceClient } from '@azure/storage-blob';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveReceiptResult } from '../lib/table-storage';
+import { 
+    ProcessReceiptSchema, 
+    GeminiResponseSchema,
+    type ProcessedItem,
+    type GeminiResponse 
+} from '../schemas/validation';
+import { 
+    validateRequestBody, 
+    createErrorResponse, 
+    createSuccessResponse, 
+    performSecurityChecks 
+} from '../lib/validation-helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-interface ProcessedItem {
-  name: string;
-  price: number;
-  category?: string;
-  accountSuggestion?: string;
-  taxNote?: string;
-}
-
-interface GeminiResponse {
-  totalAmount: number;
-  receiptDate: string;
-  items: ProcessedItem[];
-}
 
 const GEMINI_PROMPT = `
 あなたは日本の税務に詳しい会計士です。レシート画像を解析して、以下の情報を抽出してください：
@@ -72,14 +70,16 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
       throw new Error('Valid JSON response not found in Gemini response');
     }
     
-    const parsedResponse = JSON.parse(jsonMatch[0]) as GeminiResponse;
+    const rawResponse = JSON.parse(jsonMatch[0]);
     
-    // データ検証
-    if (!parsedResponse.totalAmount || !parsedResponse.items || !Array.isArray(parsedResponse.items)) {
-      throw new Error('Invalid response structure from Gemini API');
+    // zodスキーマでのデータ検証
+    const validationResult = GeminiResponseSchema.safeParse(rawResponse);
+    if (!validationResult.success) {
+      console.error('Gemini APIレスポンスのバリデーションエラー:', validationResult.error.issues);
+      throw new Error(`Gemini APIレスポンスの形式が不正です: ${validationResult.error.issues.map(i => i.message).join(', ')}`);
     }
     
-    return parsedResponse;
+    return validationResult.data;
   } catch (error: any) {
     console.error('Error analyzing receipt with Gemini:', error);
     throw new Error(`Gemini API analysis failed: ${error.message}`);
@@ -88,15 +88,11 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
 
 export async function processReceipt(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
-    const body = await request.json() as any;
-    const { blobName, userId } = body;
+    // セキュリティチェック
+    performSecurityChecks(request, context, 20); // レシート処理は重い処理なので制限を厳しく
 
-    if (!blobName || !userId) {
-      return {
-        status: 400,
-        jsonBody: { error: 'Missing blobName or userId' }
-      };
-    }
+    // リクエストボディのバリデーション
+    const { blobName, userId } = await validateRequestBody(request, ProcessReceiptSchema, context);
 
     context.log(`Processing receipt: ${blobName} for user: ${userId}`);
 
@@ -176,27 +172,16 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
 
     context.log(`Receipt processing completed successfully: ${receiptId}`);
 
-    return {
-      status: 200,
-      jsonBody: {
-        message: 'Receipt processed successfully',
-        receiptId,
-        itemCount: analysisResult.items.length,
-        totalAmount: analysisResult.totalAmount,
-        receiptDate: analysisResult.receiptDate
-      }
-    };
+    return createSuccessResponse({
+      message: 'Receipt processed successfully',
+      receiptId,
+      itemCount: analysisResult.items.length,
+      totalAmount: analysisResult.totalAmount,
+      receiptDate: analysisResult.receiptDate
+    });
 
-  } catch (error: any) {
-    context.error('Error processing receipt:', error);
-    
-    return {
-      status: 500,
-      jsonBody: {
-        error: 'Internal server error',
-        message: error.message
-      }
-    };
+  } catch (error: unknown) {
+    return createErrorResponse(error, context, 500);
   }
 }
 

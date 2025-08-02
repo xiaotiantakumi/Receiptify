@@ -1,32 +1,29 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { generateSASToken, getUserContainerName, getBlobServiceClient } from '../lib/storage';
 import { v4 as uuidv4 } from 'uuid';
+import { IssueSasTokenSchema } from '../schemas/validation';
+import { 
+    extractUserFromAuth, 
+    createErrorResponse, 
+    createSuccessResponse, 
+    performSecurityChecks,
+    validateRequestBody
+} from '../lib/validation-helpers';
 
 export async function issueSasToken(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('SAS token request received');
 
     try {
-        // Azure Static Web Appsの認証情報を取得
-        const clientPrincipalHeader = request.headers.get('x-ms-client-principal');
-        
-        let userId: string;
-        
-        if (!clientPrincipalHeader) {
-            // ローカル開発用: 認証ヘッダーがない場合はテスト用ユーザーIDを使用
-            context.log('No authentication header found, using test user for local development');
-            userId = 'test-user-local';
-        } else {
-            // Base64デコードしてユーザー情報を取得
-            const clientPrincipal = JSON.parse(Buffer.from(clientPrincipalHeader, 'base64').toString());
-            userId = clientPrincipal.userId;
+        // セキュリティチェック
+        performSecurityChecks(request, context, 50); // SASトークン発行は制限を厳しく
 
-            if (!userId) {
-                return {
-                    status: 401,
-                    jsonBody: { error: 'Unauthorized: User ID not found' }
-                };
-            }
+        // リクエストボディのバリデーション（空のボディでも可）
+        if (request.method === 'POST') {
+            await validateRequestBody(request, IssueSasTokenSchema, context);
         }
+
+        // 認証情報の安全な取得
+        const { userId } = extractUserFromAuth(request, context, true);
 
         // ユーザー専用のコンテナ名を生成
         const containerName = getUserContainerName(userId);
@@ -48,27 +45,17 @@ export async function issueSasToken(request: HttpRequest, context: InvocationCon
         const blobUrl = `${containerClient.url}/${blobName}`;
         const sasUrl = `${blobUrl}?${sasToken}`;
 
-        return {
-            status: 200,
-            jsonBody: {
-                containerName,
-                blobName,
-                receiptId,
-                sasUrl,
-                blobUrl,
-                expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1時間後
-            }
-        };
+        return createSuccessResponse({
+            containerName,
+            blobName,
+            receiptId,
+            sasUrl,
+            blobUrl,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1時間後
+        });
 
-    } catch (error: any) {
-        context.log('Error generating SAS token:', error);
-        return {
-            status: 500,
-            jsonBody: { 
-                error: 'Internal server error',
-                message: error.message 
-            }
-        };
+    } catch (error: unknown) {
+        return createErrorResponse(error, context, 500);
     }
 }
 
