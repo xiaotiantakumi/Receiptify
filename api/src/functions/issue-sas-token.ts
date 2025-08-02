@@ -9,22 +9,23 @@ export async function issueSasToken(request: HttpRequest, context: InvocationCon
         // Azure Static Web Appsの認証情報を取得
         const clientPrincipalHeader = request.headers.get('x-ms-client-principal');
         
+        let userId: string;
+        
         if (!clientPrincipalHeader) {
-            return {
-                status: 401,
-                jsonBody: { error: 'Unauthorized: No authentication information found' }
-            };
-        }
+            // ローカル開発用: 認証ヘッダーがない場合はテスト用ユーザーIDを使用
+            context.log('No authentication header found, using test user for local development');
+            userId = 'test-user-local';
+        } else {
+            // Base64デコードしてユーザー情報を取得
+            const clientPrincipal = JSON.parse(Buffer.from(clientPrincipalHeader, 'base64').toString());
+            userId = clientPrincipal.userId;
 
-        // Base64デコードしてユーザー情報を取得
-        const clientPrincipal = JSON.parse(Buffer.from(clientPrincipalHeader, 'base64').toString());
-        const userId = clientPrincipal.userId;
-
-        if (!userId) {
-            return {
-                status: 401,
-                jsonBody: { error: 'Unauthorized: User ID not found' }
-            };
+            if (!userId) {
+                return {
+                    status: 401,
+                    jsonBody: { error: 'Unauthorized: User ID not found' }
+                };
+            }
         }
 
         // ユーザー専用のコンテナ名を生成

@@ -53,3 +53,9 @@ public/*
 # logs
 *.log
 /tmp/*.log
+
+# test files (temporary)
+test-receipt*.txt
+
+# Azurite (local Azure Storage emulator)
+azurite-data/

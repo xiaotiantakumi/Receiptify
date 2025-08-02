@@ -1,7 +1,7 @@
 # Receiptify Makefile
 # Quick start commands for development and deployment
 
-.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all
+.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all install-azurite start-azurite stop-azurite
 
 # Default target
 help:
@@ -10,13 +10,16 @@ help:
 	@echo "Setup:"
 	@echo "  make install      - Install all dependencies"
 	@echo "  make install-blob - Install Blob Functions dependencies"
+	@echo "  make install-azurite - Install Azurite and dependencies"
 	@echo ""
 	@echo "Development:"
 	@echo "  make dev         - Start frontend development server"
 	@echo "  make api         - Start API development server" 
 	@echo "  make start       - Start integrated environment (SWA CLI)"
 	@echo "  make start-blob  - Start Blob Functions development server"
-	@echo "  make start-all   - Start all services (SWA + Blob Functions)"
+	@echo "  make start-azurite - Start Azurite (local Azure Storage emulator)"
+	@echo "  make stop-azurite  - Stop Azurite Docker container"
+	@echo "  make start-all   - Start all services (SWA + Blob Functions + Azurite)"
 	@echo ""
 	@echo "Build & Test:"
 	@echo "  make build       - Build frontend and API"
@@ -47,6 +50,17 @@ install-blob:
 	cd functions-blob && npm install
 	@echo "✅ Blob Functions dependencies installed"
 
+# Install Azurite and all dependencies
+install-azurite: install
+	@echo "🐳 Setting up Azurite with Docker..."
+	@echo "📁 Creating Azurite data directory..."
+	@mkdir -p azurite-data
+	@echo "🔍 Checking Docker availability..."
+	@docker --version > /dev/null 2>&1 || (echo "❌ Docker is required but not installed. Please install Docker first." && exit 1)
+	@echo "📥 Pulling Azurite Docker image..."
+	@docker pull mcr.microsoft.com/azure-storage/azurite:latest
+	@echo "✅ Azurite setup complete"
+
 # Development server
 dev:
 	@echo "🚀 Starting frontend development server..."
@@ -64,6 +78,9 @@ kill-ports:
 	@lsof -ti:4280 | xargs kill -9 2>/dev/null || echo "  Port 4280 is clear"
 	@lsof -ti:7071 | xargs kill -9 2>/dev/null || echo "  Port 7071 is clear"
 	@lsof -ti:7072 | xargs kill -9 2>/dev/null || echo "  Port 7072 is clear"
+	@lsof -ti:10000 | xargs kill -9 2>/dev/null || echo "  Port 10000 (Azurite Blob) is clear"
+	@lsof -ti:10001 | xargs kill -9 2>/dev/null || echo "  Port 10001 (Azurite Queue) is clear"
+	@lsof -ti:10002 | xargs kill -9 2>/dev/null || echo "  Port 10002 (Azurite Table) is clear"
 	@echo "✅ Port cleanup complete"
 
 # Start integrated environment
@@ -78,10 +95,30 @@ start-blob:
 	@echo "🚀 Starting Blob Functions development server..."
 	cd functions-blob && npm run start
 
-# Start all services (SWA + Blob Functions)
+# Start Azurite (local Azure Storage emulator)
+start-azurite:
+	@echo "🚀 Starting Azurite (local Azure Storage emulator) with Docker..."
+	@echo "  Blob Storage: http://127.0.0.1:10000"
+	@echo "  Table Storage: http://127.0.0.1:10002"
+	@echo "  Queue Storage: http://127.0.0.1:10001"
+	@mkdir -p azurite-data
+	docker-compose up -d azurite
+
+# Stop Azurite Docker container
+stop-azurite:
+	@echo "🛑 Stopping Azurite Docker container..."
+	docker-compose stop azurite
+	@echo "✅ Azurite stopped"
+
+# Start all services (SWA + Blob Functions + Azurite)
 start-all: kill-ports
 	@echo "🚀 Starting all services..."
 	@echo "  ⏱️  Waiting 3 seconds after port cleanup..."
+	@sleep 3
+	@echo "📁 Creating Azurite data directory..."
+	@mkdir -p azurite-data
+	@echo "🐳 Starting Azurite (local Azure Storage emulator) with Docker..."
+	docker-compose up -d azurite
 	@sleep 3
 	@echo "Starting Blob Functions on port 7072..."
 	cd functions-blob && FUNCTIONS_CUSTOMHANDLER_PORT=7072 npm run start &
@@ -146,4 +183,8 @@ clean:
 	rm -rf functions-blob/dist/
 	rm -rf .next/
 	rm -rf node_modules/.cache/
+	@echo "🐳 Stopping and removing Azurite Docker containers..."
+	@docker-compose down --volumes --remove-orphans 2>/dev/null || echo "  No Docker containers to clean"
+	rm -rf azurite-data/
+	rm -f azurite-debug.log
 	@echo "✅ Clean complete"

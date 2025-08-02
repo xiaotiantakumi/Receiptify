@@ -32,6 +32,7 @@ export async function generateSASToken(containerName: string, blobName: string):
   const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
   
   const permissions = new BlobSASPermissions();
+  permissions.read = true;
   permissions.write = true;
   permissions.create = true;
   
