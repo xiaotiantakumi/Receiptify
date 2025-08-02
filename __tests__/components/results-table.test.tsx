@@ -49,6 +49,8 @@ describe('ResultsTable', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear the document body before each test
+    document.body.innerHTML = '';
   });
 
   it('should show loading state', () => {
@@ -117,16 +119,16 @@ describe('ResultsTable', () => {
     expect(screen.getByText('receipt1.jpg')).toBeInTheDocument();
     expect(screen.getByText('✓ 完了')).toBeInTheDocument();
     expect(screen.getByText('レシート日付: 2024-01-15')).toBeInTheDocument();
-    expect(screen.getByText('合計: ¥800')).toBeInTheDocument();
+    expect(screen.getByText('合計: ￥800')).toBeInTheDocument();
     
     // Check items table
     expect(screen.getByText('コーヒー')).toBeInTheDocument();
-    expect(screen.getByText('¥300')).toBeInTheDocument();
+    expect(screen.getByText('￥300')).toBeInTheDocument();
     expect(screen.getByText('会議費')).toBeInTheDocument();
     expect(screen.getByText('軽減税率対象')).toBeInTheDocument();
     
     expect(screen.getByText('サンドイッチ')).toBeInTheDocument();
-    expect(screen.getByText('¥500')).toBeInTheDocument();
+    expect(screen.getByText('￥500')).toBeInTheDocument();
   });
 
   it('should render processing result correctly', () => {
@@ -191,9 +193,9 @@ describe('ResultsTable', () => {
       />
     );
 
-    expect(screen.getByText('¥300')).toBeInTheDocument();
-    expect(screen.getByText('¥500')).toBeInTheDocument();
-    expect(screen.getByText('¥800')).toBeInTheDocument();
+    expect(screen.getByText('￥300')).toBeInTheDocument();
+    expect(screen.getByText('￥500')).toBeInTheDocument();
+    expect(screen.getByText('￥800')).toBeInTheDocument();
   });
 
   it('should format date correctly', () => {

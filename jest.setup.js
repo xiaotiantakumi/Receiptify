@@ -1,5 +1,13 @@
 import '@testing-library/jest-dom';
 
+// Configure React Testing Library
+import { configure } from '@testing-library/react';
+
+configure({
+  // Ensure elements are automatically attached to the document body
+  defaultHidden: false,
+});
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -26,6 +34,17 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
+
+// Mock MutationObserver
+global.MutationObserver = class MutationObserver {
+  constructor(callback) {
+    this.callback = callback;
+  }
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+  takeRecords() { return []; }
+};
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
@@ -55,17 +74,27 @@ const mockCreateElement = jest.fn((tagName) => {
   return originalCreateElement.call(document, tagName);
 });
 
-// Store original methods and create mocks
+// Store original methods for testing use
 const originalAppendChild = document.body.appendChild;
 const originalRemoveChild = document.body.removeChild;
 
-// Mock appendChild and removeChild
+// Mock appendChild that actually appends for testing
 document.body.appendChild = jest.fn((element) => {
-  return element;
+  // For link elements (CSV download), just mock the behavior
+  if (element.tagName === 'A') {
+    return element;
+  }
+  // For other elements, actually append them
+  return originalAppendChild.call(document.body, element);
 });
 
 document.body.removeChild = jest.fn((element) => {
-  return element;
+  // For link elements (CSV download), just mock the behavior
+  if (element.tagName === 'A') {
+    return element;
+  }
+  // For other elements, actually remove them
+  return originalRemoveChild.call(document.body, element);
 });
 
 // Set up safe defaults
