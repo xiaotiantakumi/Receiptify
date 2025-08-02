@@ -68,6 +68,7 @@ const mockCreateElement = jest.fn((tagName) => {
       style: {},
       href: '',
       download: '',
+      tagName: 'A', // Important: ensure tagName is set
     };
     return mockLink;
   }
@@ -78,23 +79,29 @@ const mockCreateElement = jest.fn((tagName) => {
 const originalAppendChild = document.body.appendChild;
 const originalRemoveChild = document.body.removeChild;
 
-// Mock appendChild that actually appends for testing
+// Mock appendChild that properly handles link elements
 document.body.appendChild = jest.fn((element) => {
   // For link elements (CSV download), just mock the behavior
-  if (element.tagName === 'A') {
+  if (element && (element.tagName === 'A' || element.href !== undefined)) {
     return element;
   }
   // For other elements, actually append them
-  return originalAppendChild.call(document.body, element);
+  if (element && typeof element === 'object') {
+    return originalAppendChild.call(document.body, element);
+  }
+  return element;
 });
 
 document.body.removeChild = jest.fn((element) => {
   // For link elements (CSV download), just mock the behavior
-  if (element.tagName === 'A') {
+  if (element && (element.tagName === 'A' || element.href !== undefined)) {
     return element;
   }
   // For other elements, actually remove them
-  return originalRemoveChild.call(document.body, element);
+  if (element && typeof element === 'object') {
+    return originalRemoveChild.call(document.body, element);
+  }
+  return element;
 });
 
 // Set up safe defaults

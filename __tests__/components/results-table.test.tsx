@@ -124,8 +124,8 @@ describe('ResultsTable', () => {
     // Check items table
     expect(screen.getByText('コーヒー')).toBeInTheDocument();
     expect(screen.getByText('￥300')).toBeInTheDocument();
-    expect(screen.getByText('会議費')).toBeInTheDocument();
-    expect(screen.getByText('軽減税率対象')).toBeInTheDocument();
+    expect(screen.getAllByText('会議費')).toHaveLength(2); // Two items both have 会議費
+    expect(screen.getAllByText('軽減税率対象')).toHaveLength(2); // Two items both have this tax note
     
     expect(screen.getByText('サンドイッチ')).toBeInTheDocument();
     expect(screen.getByText('￥500')).toBeInTheDocument();
@@ -195,7 +195,7 @@ describe('ResultsTable', () => {
 
     expect(screen.getByText('￥300')).toBeInTheDocument();
     expect(screen.getByText('￥500')).toBeInTheDocument();
-    expect(screen.getByText('￥800')).toBeInTheDocument();
+    expect(screen.getByText(/合計: ￥800/)).toBeInTheDocument();
   });
 
   it('should format date correctly', () => {
@@ -208,7 +208,7 @@ describe('ResultsTable', () => {
     );
 
     // Date formatting will depend on locale, but should contain year/month/day/time
-    const dateElement = screen.getByText(/2024/);
+    const dateElement = screen.getByText(/2024年1月15日/);
     expect(dateElement).toBeInTheDocument();
   });
 
@@ -251,10 +251,10 @@ describe('ResultsTable', () => {
     );
 
     expect(screen.getByText('シンプル商品')).toBeInTheDocument();
-    expect(screen.getByText('¥100')).toBeInTheDocument();
+    expect(screen.getByText('￥100')).toBeInTheDocument();
     
     // Account suggestion and tax note cells should be empty but present
     const tableCells = screen.getAllByRole('cell');
-    expect(tableCells).toHaveLength(8); // 4 headers + 4 data cells
+    expect(tableCells).toHaveLength(4); // Only 4 data cells (no headers in this table structure)
   });
 });
