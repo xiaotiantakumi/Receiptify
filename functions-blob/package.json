@@ -19,7 +19,8 @@
     "@azure/storage-blob": "^12.28.0",
     "@google/generative-ai": "^0.24.1",
     "@types/uuid": "^10.0.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.6",

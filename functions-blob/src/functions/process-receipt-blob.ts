@@ -1,22 +1,25 @@
 import { app, InvocationContext, StorageBlobHandler } from '@azure/functions';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveReceiptResult } from '../lib/table-storage';
+import { 
+  GeminiResponseSchema,
+  BlobTriggerMetadataSchema,
+  extractUserIdFromContainerPath,
+  extractMetadataFromBlobName,
+  ValidationError,
+  type ProcessedItem,
+  type GeminiResponse
+} from '../schemas/validation';
+import { 
+  validateBlobData,
+  validateMimeType,
+  executeWithRetry,
+  logError,
+  logMemoryUsage,
+  formatProcessingResult
+} from '../lib/validation-helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-interface ProcessedItem {
-  name: string;
-  price: number;
-  category?: string;
-  accountSuggestion?: string;
-  taxNote?: string;
-}
-
-interface GeminiResponse {
-  totalAmount: number;
-  receiptDate: string;
-  items: ProcessedItem[];
-}
 
 const GEMINI_PROMPT = `
 あなたは日本の税務に詳しい会計士です。レシート画像を解析して、以下の情報を抽出してください：
@@ -71,14 +74,16 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
       throw new Error('Valid JSON response not found in Gemini response');
     }
     
-    const parsedResponse = JSON.parse(jsonMatch[0]) as GeminiResponse;
+    const rawResponse = JSON.parse(jsonMatch[0]);
     
-    // データ検証
-    if (!parsedResponse.totalAmount || !parsedResponse.items || !Array.isArray(parsedResponse.items)) {
-      throw new Error('Invalid response structure from Gemini API');
+    // zodスキーマでのデータ検証
+    const validationResult = GeminiResponseSchema.safeParse(rawResponse);
+    if (!validationResult.success) {
+      console.error('Gemini APIレスポンスのバリデーションエラー:', validationResult.error.issues);
+      throw new Error(`Gemini APIレスポンスの形式が不正です: ${validationResult.error.issues.map(i => i.message).join(', ')}`);
     }
     
-    return parsedResponse;
+    return validationResult.data;
   } catch (error: any) {
     console.error('Error analyzing receipt with Gemini:', error);
     throw new Error(`Gemini API analysis failed: ${error.message}`);
@@ -86,80 +91,92 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
 }
 
 export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, context: InvocationContext): Promise<void> => {
-  const blobName = context.triggerMetadata?.name as string;
-  const containerName = context.triggerMetadata?.uri as string;
-  
-  if (!blobName || !containerName) {
-    context.error('Missing blob metadata');
-    return;
-  }
+  // メモリ使用量のログ（開始時）
+  logMemoryUsage(context, 'start');
 
-  context.log(`Processing receipt: ${blobName} in container: ${containerName}`);
-
-  // Blob名からreceiptIdとユーザー情報を抽出
-  const receiptId = blobName.split('.')[0]; // ファイル名（拡張子なし）をreceiptIdとして使用
-  // ファイル名からユーザーIDを抽出（例: user123_receipt1.jpg -> user123）
-  const userId = blobName.split('_')[0];
-
-  if (!userId) {
-    context.error('Unable to extract user ID from blob name');
-    return;
-  }
+  let userId = '';
+  let receiptId = '';
+  let blobName = '';
 
   try {
-    // ファイル形式を推定
-    const extension = blobName.split('.').pop()?.toLowerCase();
-    let mimeType = 'image/jpeg';
-    
-    switch (extension) {
-      case 'png':
-        mimeType = 'image/png';
-        break;
-      case 'jpg':
-      case 'jpeg':
-        mimeType = 'image/jpeg';
-        break;
-      case 'webp':
-        mimeType = 'image/webp';
-        break;
-      default:
-        mimeType = 'image/jpeg';
+    // トリガーメタデータのバリデーション
+    const metadata = BlobTriggerMetadataSchema.safeParse(context.triggerMetadata);
+    if (!metadata.success) {
+      throw new ValidationError(metadata.error.issues, 'Blobメタデータが不正です');
     }
+
+    blobName = metadata.data.name;
+    const containerUri = metadata.data.uri;
+    context.log(`Processing receipt: ${blobName}`);
+
+    // ユーザーIDとレシートIDの抽出
+    userId = extractUserIdFromContainerPath(containerUri);
+    const extractedData = extractMetadataFromBlobName(blobName);
+    receiptId = extractedData.receiptId;
+
+    if (!userId) {
+      throw new ValidationError([], 'ユーザーIDを特定できません');
+    }
+
+    // Blobデータのバリデーション
+    const imageBuffer = validateBlobData(blob);
+    const mimeType = validateMimeType(blobName);
 
     context.log(`Analyzing receipt with Gemini API...`);
     
-    // Gemini APIで解析
-    const analysisResult = await analyzeReceiptWithGemini(blob as Buffer, mimeType);
+    // Gemini APIで解析（リトライ付き）
+    const analysisResult = await executeWithRetry(
+      () => analyzeReceiptWithGemini(imageBuffer, mimeType),
+      context,
+      'Gemini API解析',
+      { maxAttempts: 3, delayMs: 2000, backoffMultiplier: 2 }
+    );
     
     context.log(`Analysis completed. Found ${analysisResult.items.length} items.`);
 
-    // 結果をTable Storageに保存
-    await saveReceiptResult(userId, receiptId, {
-      receiptImageUrl: blobName,
-      status: 'completed',
-      items: JSON.stringify(analysisResult.items),
-      totalAmount: analysisResult.totalAmount,
-      receiptDate: analysisResult.receiptDate,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
+    // 結果をTable Storageに保存（リトライ付き）
+    await executeWithRetry(
+      () => saveReceiptResult(userId, receiptId, {
+        receiptImageUrl: blobName,
+        status: 'completed',
+        items: JSON.stringify(analysisResult.items),
+        totalAmount: analysisResult.totalAmount,
+        receiptDate: analysisResult.receiptDate,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }),
+      context,
+      'Table Storage保存',
+      { maxAttempts: 3, delayMs: 1000, backoffMultiplier: 1.5 }
+    );
 
-    context.log(`Receipt processing completed successfully: ${receiptId}`);
-  } catch (error: any) {
-    context.log(`Error processing receipt ${receiptId}:`, error);
+    // 処理完了ログ
+    const result = formatProcessingResult(receiptId, 'completed', {
+      itemCount: analysisResult.items.length,
+      totalAmount: analysisResult.totalAmount
+    });
+    context.log(`Receipt processing completed: ${result}`);
+
+  } catch (error: unknown) {
+    logError(context, `レシート処理エラー (${receiptId})`, error);
     
     // エラー情報をTable Storageに保存
     try {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       await saveReceiptResult(userId, receiptId, {
         status: 'failed',
-        errorMessage: error.message || 'Unknown error occurred',
+        errorMessage: errorMessage.substring(0, 500), // 長さ制限
         receiptImageUrl: blobName,
         createdAt: new Date(),
         updatedAt: new Date()
       });
-    } catch (saveError: any) {
-      context.log('Error saving error status:', saveError);
+    } catch (saveError: unknown) {
+      logError(context, 'エラーステータスの保存に失敗', saveError);
     }
+  } finally {
+    // メモリ使用量のログ（終了時）
+    logMemoryUsage(context, 'end');
   }
 }
 
