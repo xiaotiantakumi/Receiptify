@@ -1,37 +1,24 @@
-import { TableClient, TableEntity } from '@azure/data-tables';
+import { TableClient } from '@azure/data-tables';
+import { 
+  ReceiptResult, 
+  ReceiptItem, 
+  ReceiptResultSchema,
+  ReceiptResultUpdateSchema,
+  getValidatedTableConfig,
+  serializeReceiptResult,
+  parseAndValidateItems
+} from '../schemas/table-storage';
+import { ValidationError } from '../schemas/validation';
 
-export interface ReceiptResult extends TableEntity {
-  partitionKey: string; // ユーザーID
-  rowKey: string; // レシートID（UUID）
-  receiptImageUrl: string;
-  status: 'processing' | 'completed' | 'failed';
-  items?: string; // JSON文字列として保存
-  totalAmount?: number;
-  receiptDate?: string;
-  accountSuggestions?: string; // JSON文字列として保存
-  taxNotes?: string; // JSON文字列として保存
-  errorMessage?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface ReceiptItem {
-  name: string;
-  price: number;
-  category?: string;
-  accountSuggestion?: string;
-  taxNote?: string;
-}
+export { ReceiptResult, ReceiptItem } from '../schemas/table-storage';
 
 export function getTableClient(): TableClient {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const tableName = process.env.RESULTS_TABLE_NAME || 'receiptresults';
+  const config = getValidatedTableConfig();
+  const options = config.connectionString.includes('127.0.0.1') || config.connectionString.includes('localhost')
+    ? { allowInsecureConnection: true }
+    : {};
   
-  if (!connectionString) {
-    throw new Error('AZURE_STORAGE_CONNECTION_STRING is not set');
-  }
-  
-  return TableClient.fromConnectionString(connectionString, tableName);
+  return TableClient.fromConnectionString(config.connectionString, config.tableName, options);
 }
 
 export async function saveReceiptResult(
@@ -40,6 +27,19 @@ export async function saveReceiptResult(
   data: Partial<ReceiptResult>
 ): Promise<void> {
   const tableClient = getTableClient();
+  
+  // 入力データのバリデーション
+  const updateData = {
+    partitionKey: userId,
+    rowKey: receiptId,
+    ...data,
+    updatedAt: new Date()
+  };
+  
+  const validationResult = ReceiptResultUpdateSchema.safeParse(updateData);
+  if (!validationResult.success) {
+    throw new ValidationError(validationResult.error.issues);
+  }
   
   const entity: ReceiptResult = {
     partitionKey: userId,

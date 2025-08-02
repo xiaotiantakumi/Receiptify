@@ -1,7 +1,7 @@
 # Receiptify Makefile
 # Quick start commands for development and deployment
 
-.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all install-azurite start-azurite stop-azurite
+.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all install-azurite start-azurite stop-azurite demo-storage test-table demo-data
 
 # Default target
 help:
@@ -33,6 +33,12 @@ help:
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean       - Clean build artifacts"
+	@echo ""
+	@echo "Table Storage & Testing:"
+	@echo "  make demo-storage - Start Azurite + create dummy data for Storage Explorer"
+	@echo "  make demo-data    - Create dummy receipt data (requires Azurite running)"
+	@echo "  make test-table   - Run Table Storage tests"
+	@echo "  make check-git    - Check .gitignore configuration and git status"
 
 # Install dependencies
 install:
@@ -188,3 +194,35 @@ clean:
 	rm -rf azurite-data/
 	rm -f azurite-debug.log
 	@echo "✅ Clean complete"
+
+# Demo: Storage Explorer with dummy data
+demo-storage:
+	@echo "🏪 Starting Azurite + Creating dummy data for Azure Storage Explorer..."
+	@echo "📋 This will start Azurite and populate it with sample receipt data"
+	@echo ""
+	npm run demo:storage-explorer
+	@echo ""
+	@echo "🎯 Azure Storage Explorer Connection:"
+	@echo "  Connection String: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"
+	@echo "  Table Name: receiptresults"
+	@echo ""
+	@echo "📱 Setup Instructions:"
+	@echo "  1. Open Azure Storage Explorer"
+	@echo "  2. Connect with the connection string above"
+	@echo "  3. Navigate to Tables > receiptresults"
+	@echo ""
+
+# Create dummy data only (requires Azurite to be running)
+demo-data:
+	@echo "📊 Creating dummy receipt data..."
+	npm run create-dummy-data
+
+# Run Table Storage tests
+test-table:
+	@echo "🧪 Running Table Storage tests..."
+	npm run test:table-storage
+
+# Check .gitignore configuration
+check-git:
+	@echo "🔍 Checking .gitignore configuration..."
+	npm run check:gitignore

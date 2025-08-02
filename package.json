@@ -13,20 +13,38 @@
     "swa:build": "npm run build && cd api && npm run build",
     "api:start": "cd api && npm run start",
     "build:api": "cd api && npm run build",
-    "dev:with-api": "npm run build:api && swa start http://localhost:3000 --api-location api --run \"npm run dev\""
+    "dev:with-api": "npm run build:api && swa start http://localhost:3000 --api-location api --run \"npm run dev\"",
+    "azurite:start": "azurite --location ./test/azurite --silent --tableHost 127.0.0.1 --queueHost 127.0.0.1 --blobHost 127.0.0.1",
+    "azurite:test": "npm run azurite:start & sleep 3 && npx ts-node --project tsconfig.json test/azurite/test-table-storage.ts && pkill -f azurite",
+    "azurite:simple-test": "npm run azurite:start & sleep 3 && node test/azurite/simple-test.js && pkill -f azurite",
+    "azurite:zod-test": "npm run azurite:start & sleep 3 && node test/azurite/zod-validation-test.js && pkill -f azurite",
+    "test:table-storage": "npm run azurite:simple-test",
+    "test:zod-integration": "npm run azurite:zod-test",
+    "create-dummy-data": "node test/dummy-data/create-dummy-receipts.js",
+    "demo:storage-explorer": "npm run azurite:start & sleep 3 && npm run create-dummy-data",
+    "check:gitignore": "./scripts/check-gitignore.sh",
+    "pre-commit": "npm run check:gitignore && npm run lint",
+    "verify:table-data": "node test/debug/final-data-verification.js",
+    "test:complete-receipt": "node test/debug/complete-receipt-test.js",
+    "test:connection": "node test/debug/simple-connection-test.js"
   },
   "dependencies": {
+    "@azure/data-tables": "^13.3.1",
     "autoprefixer": "^10.4.21",
     "cross-env": "^10.0.0",
     "next": "14.2.31",
     "next-pwa": "^5.6.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "uuid": "^11.1.0",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@types/node": "^20.19.9",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/uuid": "^10.0.0",
+    "azurite": "^3.35.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.31",
     "eslint-config-prettier": "^10.1.8",
@@ -35,6 +53,7 @@
     "eslint-plugin-tailwindcss": "^3.18.2",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }
