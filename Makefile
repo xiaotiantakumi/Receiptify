@@ -166,12 +166,33 @@ check:
 	npm run lint
 	@echo "✅ All checks complete"
 
-# Test (placeholder for future tests)
+# Run all tests
 test:
-	@echo "🧪 Running tests..."
-	@echo "⚠️  Tests not yet implemented"
-	@echo "  To add tests, install Jest and React Testing Library"
-	@echo "  Then add test scripts to package.json"
+	@echo "🧪 Running all tests..."
+	@echo "📁 Testing API functions..."
+	cd api && npm test
+	@echo "📁 Testing Blob functions..."
+	cd functions-blob && npm test
+	@echo "✅ All tests completed"
+
+# Run tests with coverage
+test-coverage:
+	@echo "🧪 Running tests with coverage..."
+	@echo "📁 Testing API functions with coverage..."
+	cd api && npm run test:coverage
+	@echo "📁 Testing Blob functions with coverage..."
+	cd functions-blob && npm run test:coverage
+	@echo "✅ Coverage reports generated"
+
+# Run only API tests
+test-api:
+	@echo "🧪 Running API tests..."
+	cd api && npm test
+
+# Run only Blob functions tests
+test-blob:
+	@echo "🧪 Running Blob functions tests..."
+	cd functions-blob && npm test
 
 # Deploy to Azure Static Web Apps
 deploy: build
