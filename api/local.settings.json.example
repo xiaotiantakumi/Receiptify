@@ -1,0 +1,17 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    "AZURE_STORAGE_CONNECTION_STRING": "",
+    "GEMINI_API_KEY": "your-gemini-api-key-here",
+    "RECEIPT_CONTAINER_NAME": "receipts",
+    "RESULTS_TABLE_NAME": "receiptresults"
+  },
+  "Host": {
+    "LocalHttpPort": 7071,
+    "CORS": "http://localhost:3000,http://localhost:4280",
+    "CORSCredentials": true
+  }
+}

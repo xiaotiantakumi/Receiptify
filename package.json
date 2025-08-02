@@ -1,5 +1,5 @@
 {
-  "name": "nextjs-hybrid-starter",
+  "name": "receiptify-temp",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,49 +7,30 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "build:api": "cd api && npm run build",
-    "swa:all": "cross-env AZURE_CLIENT_ID=local-dev-client-id AZURE_CLIENT_SECRET=local-dev-client-secret swa start",
-    "swa:build": "npm run build && (cd api && npm run build)",
-    "swa:start": "swa start out --api-location api",
-    "dev:with-api": "npm run build:api && swa start http://localhost:3000 --api-location api --run \"npm run dev\""
+    "swa": "swa start out --api-location api",
+    "swa:dev": "swa start --config swa-cli.config.json",
+    "swa:all": "swa start http://localhost:3000 --api-location ./api --api-port 7071 --run \"npm run dev\" --api-devserver-url http://localhost:7071",
+    "swa:build": "npm run build && cd api && npm run build",
+    "api:start": "cd api && npm run start"
   },
   "dependencies": {
-    "next": "^14.2.30",
+    "autoprefixer": "^10.4.21",
+    "next": "14.2.31",
     "next-pwa": "^5.6.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.1",
-    "@tailwindcss/typography": "^0.5.16",
-    "@types/node": "^20",
+    "@types/node": "^20.19.9",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "autoprefixer": "^10.0.1",
-    "cross-env": "^10.0.0",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "^14.1.0",
-    "eslint-config-prettier": "^10.1.8",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.31",
     "eslint-plugin-eslint-comments": "^3.2.0",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-promise": "^7.2.1",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-security": "^3.0.1",
-    "eslint-plugin-sonarjs": "^3.0.4",
     "eslint-plugin-tailwindcss": "^3.18.2",
-    "eslint-plugin-unicorn": "^48.0.1",
     "postcss": "^8",
-    "prettier": "^3.6.2",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^3.4.1",
     "typescript": "^5"
-  },
-  "engines": {
-    "node": ">=18.17.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/xiaotiantakumi/SwaSnapContent.git"
   }
 }

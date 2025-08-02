@@ -4,10 +4,12 @@
     "app": {
       "appDevserverUrl": "http://localhost:3000",
       "apiLocation": "api",
+      "apiPort": 7071,
       "run": "npm run dev",
       "appDevserverTimeout": 120000,
       "authEnabled": false,
-      "configLocation": "staticwebapp.config.local.json"
+      "configLocation": "staticwebapp.config.local.json",
+      "apiRuntime": "node:20"
     }
   }
 }

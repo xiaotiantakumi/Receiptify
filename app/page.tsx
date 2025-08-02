@@ -1,89 +1,185 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from './components/header';
 import ThemeToggle from './components/theme-toggle';
+import ReceiptUploader from './components/receipt-uploader';
+import ResultsTable from './components/results-table';
+import UpdatePrompt from './components/update-prompt';
+import { AuthProvider } from './contexts/auth-context';
+import { useServiceWorker } from './hooks/use-service-worker';
+
+interface ReceiptItem {
+  name: string;
+  price: number;
+  category?: string;
+  accountSuggestion?: string;
+  taxNote?: string;
+}
+
+interface ReceiptResult {
+  receiptId: string;
+  fileName: string;
+  status: 'processing' | 'completed' | 'failed';
+  receiptImageUrl?: string;
+  items?: ReceiptItem[];
+  totalAmount?: number;
+  receiptDate?: string;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+interface UploadResult {
+  receiptId: string;
+  blobUrl: string;
+  fileName: string;
+}
 
 export default function Home() {
-  const [name, setName] = useState('');
-  const [response, setResponse] = useState('');
+  const [results, setResults] = useState<ReceiptResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const { requestNotificationPermission } = useServiceWorker();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchResults = useCallback(async () => {
     setLoading(true);
+    setError(null);
     
     try {
-      const res = await fetch(`/api/hello?name=${encodeURIComponent(name)}`);
-      const data = await res.json();
-      setResponse(data.message);
-    } catch (error) {
-      setResponse('Error: Failed to connect to API');
+      const response = await fetch('/api/get-receipt-results');
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // 認証が必要な場合は空の結果を返す
+          setResults([]);
+          setIsAuthenticated(false);
+          return;
+        }
+        if (response.status === 404) {
+          // 開発環境でAPIが起動していない場合
+          setResults([]);
+          setIsAuthenticated(false);
+          return;
+        }
+        throw new Error(`Failed to fetch results: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setResults(data.results || []);
+      setIsAuthenticated(true);
+    } catch (err: any) {
+      console.error('Error fetching results:', err);
+      setError(err.message || 'データの取得に失敗しました');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const handleUploadComplete = useCallback((uploadResults: UploadResult[]) => {
+    // アップロード完了時に新しい処理中のレシートを結果リストに追加
+    const newResults: ReceiptResult[] = uploadResults.map(upload => ({
+      receiptId: upload.receiptId,
+      fileName: upload.fileName,
+      status: 'processing' as const,
+      receiptImageUrl: upload.blobUrl,
+      createdAt: new Date().toISOString()
+    }));
+    
+    setResults(prev => [...newResults, ...prev]);
+    
+    // 少し遅延してから結果を再取得（処理完了を確認するため）
+    setTimeout(fetchResults, 2000);
+  }, [fetchResults]);
+
+  const handleUploadError = useCallback((errorMessage: string) => {
+    setError(errorMessage);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    fetchResults();
+  }, [fetchResults]);
+
+  // 初回ロード時に結果を取得
+  useEffect(() => {
+    if (!initialLoadDone) {
+      setInitialLoadDone(true);
+      fetchResults();
+      // 通知権限をリクエスト
+      requestNotificationPermission();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 定期的に結果を更新（認証済みかつ処理中のアイテムがある場合）
+  useEffect(() => {
+    const hasProcessing = results.some(result => result.status === 'processing');
+    
+    if (isAuthenticated && hasProcessing) {
+      const interval = setInterval(fetchResults, 5000); // 5秒ごと
+      return () => clearInterval(interval);
+    }
+  }, [results, fetchResults, isAuthenticated]);
 
   return (
-    <main className="flex min-h-screen flex-col">
-      {/* Top navigation bar */}
-      <nav className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-end space-x-3">
-            <ThemeToggle />
+    <AuthProvider>
+      <main className="flex min-h-screen flex-col">
+        {/* Top navigation bar */}
+        <nav className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 items-center justify-end space-x-3">
+              <ThemeToggle />
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <Header />
+        <div className="flex-1 bg-gray-50 dark:bg-gray-900">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+            <Header />
 
-      <div className="flex-1 bg-gray-50 dark:bg-gray-900">
-        <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
-              PWA Starter Template
-            </h1>
-            <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
-              Next.js + Azure Static Web Apps + Azure Functions
-            </p>
-          </div>
-
-          <div className="mt-16">
-            <div className="mx-auto max-w-md">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
-                    placeholder="Enter your name"
-                  />
+            {error && (
+              <div className="mb-6 rounded-md bg-red-50 border border-red-200 p-4 dark:bg-red-900/20 dark:border-red-800">
+                <div className="flex">
+                  <div className="text-sm text-red-700 dark:text-red-300">
+                    {error}
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="ml-auto text-red-700 hover:text-red-900 dark:text-red-300 dark:hover:text-red-100"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-                >
-                  {loading ? 'Loading...' : 'Say Hello'}
-                </button>
-              </form>
+              </div>
+            )}
 
-              {response && (
-                <div className="mt-8 rounded-md bg-gray-100 p-4 dark:bg-gray-800">
-                  <p className="text-center text-lg font-medium text-gray-900 dark:text-gray-100">
-                    {response}
-                  </p>
-                </div>
-              )}
+            <div className="space-y-8">
+              {/* Upload Section */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  レシートアップロード
+                </h2>
+                <ReceiptUploader
+                  onUploadComplete={handleUploadComplete}
+                  onUploadError={handleUploadError}
+                />
+              </div>
+
+              {/* Results Section */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <ResultsTable
+                  results={results}
+                  loading={loading}
+                  onRefresh={handleRefresh}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+        
+        <UpdatePrompt />
+      </main>
+    </AuthProvider>
   );
 }
