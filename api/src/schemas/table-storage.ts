@@ -73,7 +73,7 @@ export function serializeReceiptResult(data: {
   taxNotes?: string[];
   [key: string]: any;
 }): Partial<ReceiptResult> {
-  const serialized: Partial<ReceiptResult> = { ...data };
+  const serialized: Partial<ReceiptResult> = { ...data } as Partial<ReceiptResult>;
   
   if (data.items) {
     serialized.items = JSON.stringify(data.items);

@@ -10,7 +10,7 @@ import {
 } from '../schemas/table-storage';
 import { ValidationError } from '../schemas/validation';
 
-export { ReceiptResult, ReceiptItem } from '../schemas/table-storage';
+export type { ReceiptResult, ReceiptItem } from '../schemas/table-storage';
 
 export function getTableClient(): TableClient {
   const config = getValidatedTableConfig();
