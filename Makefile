@@ -25,8 +25,8 @@ help:
 	@echo "  make build       - Build frontend and API"
 	@echo "  make build-blob  - Build Blob Functions"
 	@echo "  make lint        - Run linting checks"
-	@echo "  make check       - Run type checking and linting"
-	@echo "  make test        - Run tests (when implemented)"
+	@echo "  make check       - Run type checking, linting, and frontend tests"
+	@echo "  make test        - Run all tests (frontend, API, Blob Functions)"
 	@echo ""
 	@echo "Deployment:"
 	@echo "  make deploy      - Deploy to Azure Static Web Apps"
@@ -164,11 +164,15 @@ check:
 	cd functions-blob && npx tsc --noEmit
 	@echo "🔍 Running linting..."
 	npm run lint
+	@echo "🧪 Running frontend tests..."
+	npm run test:ci
 	@echo "✅ All checks complete"
 
 # Run all tests
 test:
 	@echo "🧪 Running all tests..."
+	@echo "📁 Testing frontend components..."
+	npm run test:ci
 	@echo "📁 Testing API functions..."
 	cd api && npm test
 	@echo "📁 Testing Blob functions..."
@@ -193,6 +197,11 @@ test-api:
 test-blob:
 	@echo "🧪 Running Blob functions tests..."
 	cd functions-blob && npm test
+
+# Run only frontend tests
+test-frontend:
+	@echo "🧪 Running frontend tests..."
+	npm run test:ci
 
 # Deploy to Azure Static Web Apps
 deploy: build
