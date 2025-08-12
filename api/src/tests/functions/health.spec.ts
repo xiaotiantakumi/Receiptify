@@ -1,14 +1,29 @@
-import { mock } from 'jest-mock-extended';
 import { HttpRequest, InvocationContext } from '@azure/functions';
 
 // Simple test to verify Jest setup
 describe('health function', () => {
-  let httpRequestMock: HttpRequest;
-  let invocationContextMock: InvocationContext;
+  let httpRequestMock: Partial<HttpRequest>;
+  let invocationContextMock: Partial<InvocationContext>;
 
   beforeEach(() => {
-    httpRequestMock = mock<HttpRequest>();
-    invocationContextMock = mock<InvocationContext>();
+    const headersMock = new Headers();
+    httpRequestMock = {
+      method: 'GET',
+      url: 'http://localhost:7071/api/health',
+      headers: headersMock,
+      query: new URLSearchParams(),
+      params: {},
+    };
+    invocationContextMock = {
+      log: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+      trace: jest.fn(),
+      invocationId: 'test-invocation-id',
+      functionName: 'health',
+    };
   });
 
   it('should create mock objects successfully', () => {

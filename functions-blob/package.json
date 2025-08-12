@@ -7,7 +7,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "prestart": "npm run build",
-    "start": "func start",
+    "start": "func start --port 7072",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -28,7 +28,7 @@
     "@types/jest": "^29.5.12",
     "@types/jsdom": "^21.1.6",
     "@types/node": "^20.11.24",
-    "azure-functions-core-tools": "^4.0.0",
+    "azure-functions-core-tools": "^4.1.0",
     "jest": "^29.7.0",
     "jest-mock-extended": "^3.0.5",
     "ts-jest": "^29.1.2",

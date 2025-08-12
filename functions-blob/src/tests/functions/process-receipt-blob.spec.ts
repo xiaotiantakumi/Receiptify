@@ -8,8 +8,26 @@ describe('process-receipt-blob function', () => {
   let sourceCode: string;
 
   beforeAll(() => {
-    const filePath = join(__dirname, '../../functions/process-receipt-blob.ts');
-    sourceCode = readFileSync(filePath, 'utf-8');
+    // Try different paths to handle both source and compiled test runs
+    const possiblePaths = [
+      join(__dirname, '../../functions/process-receipt-blob.ts'), // For source test runs (src/tests/functions -> src/functions)
+      join(__dirname, '../../../src/functions/process-receipt-blob.ts'), // For compiled test runs (dist/tests/functions -> src/functions)
+    ];
+    
+    let fileFound = false;
+    for (const filePath of possiblePaths) {
+      try {
+        sourceCode = readFileSync(filePath, 'utf-8');
+        fileFound = true;
+        break;
+      } catch (error) {
+        // Continue to next path
+      }
+    }
+    
+    if (!fileFound) {
+      throw new Error('Could not find process-receipt-blob.ts source file');
+    }
   });
 
   it('should exist as a file', () => {

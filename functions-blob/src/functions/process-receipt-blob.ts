@@ -91,6 +91,9 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
 }
 
 export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, context: InvocationContext): Promise<void> => {
+  context.log('🔥 BLOB TRIGGER FIRED! Processing starting...');
+  context.log('🔍 Trigger metadata:', JSON.stringify(context.triggerMetadata, null, 2));
+  
   // メモリ使用量のログ（開始時）
   logMemoryUsage(context, 'start');
 
@@ -109,10 +112,10 @@ export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, cont
     const containerUri = metadata.data.uri;
     context.log(`Processing receipt: ${blobName}`);
 
-    // ユーザーIDとレシートIDの抽出
-    userId = extractUserIdFromContainerPath(containerUri);
+    // ユーザーIDとファイル名の抽出
     const extractedData = extractMetadataFromBlobName(blobName);
-    receiptId = extractedData.receiptId;
+    userId = extractedData.userId;
+    receiptId = extractedData.fileName.replace(/\.[^/.]+$/, ''); // ファイル名から拡張子を除去してレシートIDとして使用
 
     if (!userId) {
       throw new ValidationError([], 'ユーザーIDを特定できません');

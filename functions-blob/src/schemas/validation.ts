@@ -103,6 +103,19 @@ export const GetReceiptResultsSchema = z.object({
 
 export type GetReceiptResultsQuery = z.infer<typeof GetReceiptResultsSchema>;
 
+// Blob Triggerメタデータのスキーマ
+export const BlobTriggerMetadataSchema = z.object({
+  name: CommonValidations.blobName,
+  uri: z.string().url('不正なURL形式です'),
+  properties: z.object({
+    contentType: z.string().optional(),
+    contentLength: z.number().nonnegative().optional(),
+    lastModified: z.string().optional()
+  }).optional()
+}).strict();
+
+export type BlobTriggerMetadata = z.infer<typeof BlobTriggerMetadataSchema>;
+
 // レシート解析結果のスキーマ
 export const ProcessedItemSchema = z.object({
   name: CommonValidations.sanitizedString(200),
@@ -147,5 +160,44 @@ export class ValidationError extends Error {
       error: 'バリデーションエラー',
       message: this.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(', ')
     };
+  }
+}
+
+// Blob処理用のユーティリティ関数
+export function extractUserIdFromContainerPath(blobName: string): string {
+  // blobNameの形式: user-{userId}/filename.ext
+  const match = blobName.match(/^user-([^\/]+)\//);
+  if (!match) {
+    throw new ValidationError([], 'Invalid blob name format: user ID not found');
+  }
+  
+  const userId = match[1];
+  try {
+    CommonValidations.userId.parse(userId);
+    return userId;
+  } catch (error) {
+    throw new ValidationError([], `Invalid user ID format: ${userId}`);
+  }
+}
+
+export function extractMetadataFromBlobName(blobName: string): { userId: string; fileName: string } {
+  // blobNameの形式: {userId}/{receiptId}/filename.ext
+  const match = blobName.match(/^([^\/]+)\/([^\/]+)\/(.+)$/);
+  if (!match) {
+    throw new ValidationError([], 'Invalid blob name format');
+  }
+  
+  const [, userId, receiptId, fileName] = match;
+  
+  try {
+    CommonValidations.userId.parse(userId);
+    CommonValidations.safeFilename.parse(fileName);
+    
+    return { userId: userId, fileName: receiptId }; // receiptIdをfileNameとして返す
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError(error.issues, 'Invalid blob metadata');
+    }
+    throw error;
   }
 }

@@ -46,12 +46,12 @@ describe('issue-sas-token endpoint', () => {
     expect(funcString).toContain('extractUserFromAuth');
   });
 
-  it('should validate request body for POST requests', () => {
+  it('should validate request body', () => {
     const module = require('../../functions/issue-sas-token');
     const funcString = module.issueSasToken.toString();
     
     expect(funcString).toContain('validateRequestBody');
-    expect(funcString).toContain('POST');
+    expect(funcString).toContain('fileName'); // リクエストデータからファイル名を取得
   });
 
   it('should access blob storage', () => {
@@ -59,7 +59,7 @@ describe('issue-sas-token endpoint', () => {
     const funcString = module.issueSasToken.toString();
     
     expect(funcString).toContain('getBlobServiceClient');
-    expect(funcString).toContain('getUserContainerName');
+    expect(funcString).toContain('receipts'); // 固定コンテナ名を使用
   });
 
   it('should generate SAS tokens', () => {
@@ -76,12 +76,13 @@ describe('issue-sas-token endpoint', () => {
     expect(funcString).toContain('createIfNotExists');
   });
 
-  it('should generate unique blob names', () => {
+  it('should generate unique blob names with user directory structure', () => {
     const module = require('../../functions/issue-sas-token');
     const funcString = module.issueSasToken.toString();
     
     expect(funcString).toContain('v4'); // uuid.v4()
     expect(funcString).toContain('toISOString');
+    expect(funcString).toContain('userId'); // ユーザー別ディレクトリ構造
   });
 
   it('should return success response with SAS URL', () => {

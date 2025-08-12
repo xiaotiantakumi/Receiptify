@@ -9,7 +9,7 @@
         },
         "logLevel": {
             "default": "Information",
-            "Function": "Debug",
+            "Function": "Information",
             "Host.Results": "Information",
             "Host.Aggregator": "Information"
         }
@@ -20,9 +20,19 @@
     },
     "http": {
         "cors": {
-            "allowedOrigins": ["http://localhost:3000", "http://localhost:3001"],
-            "allowedMethods": ["GET", "POST", "OPTIONS"],
-            "allowedHeaders": ["Content-Type", "Authorization"]
+            "allowedOrigins": [
+                "http://localhost:3000",
+                "http://localhost:3001"
+            ],
+            "allowedMethods": [
+                "GET",
+                "POST",
+                "OPTIONS"
+            ],
+            "allowedHeaders": [
+                "Content-Type",
+                "Authorization"
+            ]
         }
     }
 }

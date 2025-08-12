@@ -48,7 +48,7 @@ export const CommonValidations = {
     .min(1, 'Blob名は必須です')
     .max(SECURITY_LIMITS.MAX_BLOB_NAME_LENGTH, `Blob名は${SECURITY_LIMITS.MAX_BLOB_NAME_LENGTH}文字以下である必要があります`)
     .refine(
-      (val) => /^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$/i.test(val),
+      (val) => /^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp|pdf)$/i.test(val),
       'サポートされていないファイル形式です'
     ),
 
@@ -79,10 +79,10 @@ export const ProcessReceiptSchema = z.object({
 
 export type ProcessReceiptRequest = z.infer<typeof ProcessReceiptSchema>;
 
-// SASトークン発行用のスキーマ（リクエストボディは空でも可）
+// SASトークン発行用のスキーマ
 export const IssueSasTokenSchema = z.object({
-  // 追加のオプションパラメータがあれば定義
-}).strict().optional();
+  fileName: CommonValidations.safeFilename.optional() // オプションのファイル名
+}).strict();
 
 export type IssueSasTokenRequest = z.infer<typeof IssueSasTokenSchema>;
 

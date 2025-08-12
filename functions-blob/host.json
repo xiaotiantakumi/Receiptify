@@ -8,10 +8,17 @@
       }
     },
     "logLevel": {
-      "default": "Information",
-      "Function": "Debug",
+      "default": "Warning",
+      "Function": "Warning",
       "Host.Results": "Information",
-      "Host.Aggregator": "Information"
+      "Host.Aggregator": "Information",
+      "Microsoft.Azure.WebJobs.Extensions.Storage": "Warning",
+      "Microsoft.Azure.WebJobs.Extensions.Storage.Blobs": "Warning"
+    }
+  },
+  "extensions": {
+    "blobs": {
+      "maxDegreeOfParallelism": 4
     }
   },
   "extensionBundle": {
