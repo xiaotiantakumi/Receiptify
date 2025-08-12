@@ -73,18 +73,20 @@ export function serializeReceiptResult(data: {
   taxNotes?: string[];
   [key: string]: any;
 }): Partial<ReceiptResult> {
-  const serialized: Partial<ReceiptResult> = { ...data };
+  // Extract the arrays that need to be serialized
+  const { items, accountSuggestions, taxNotes, ...rest } = data;
+  const serialized: Partial<ReceiptResult> = { ...rest };
   
-  if (data.items) {
-    serialized.items = JSON.stringify(data.items);
+  if (items) {
+    serialized.items = JSON.stringify(items);
   }
   
-  if (data.accountSuggestions) {
-    serialized.accountSuggestions = JSON.stringify(data.accountSuggestions);
+  if (accountSuggestions) {
+    serialized.accountSuggestions = JSON.stringify(accountSuggestions);
   }
   
-  if (data.taxNotes) {
-    serialized.taxNotes = JSON.stringify(data.taxNotes);
+  if (taxNotes) {
+    serialized.taxNotes = JSON.stringify(taxNotes);
   }
   
   return serialized;

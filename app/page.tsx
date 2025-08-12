@@ -48,7 +48,7 @@ export default function Home() {
     setError(null);
     
     try {
-      const response = await fetch('/api/get-receipt-results');
+      const response = await fetch('/api/get-receipt-results?limit=50&offset=0');
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -69,9 +69,10 @@ export default function Home() {
       const data = await response.json();
       setResults(data.results || []);
       setIsAuthenticated(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching results:', err);
-      setError(err.message || 'データの取得に失敗しました');
+      const errorMessage = err instanceof Error ? err.message : 'データの取得に失敗しました';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

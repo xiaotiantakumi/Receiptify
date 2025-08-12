@@ -114,7 +114,7 @@ describe('Home Page', () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/get-receipt-results');
+      expect(mockFetch).toHaveBeenCalledWith('/api/get-receipt-results?limit=50&offset=0');
     });
   });
 
@@ -126,7 +126,7 @@ describe('Home Page', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/データの取得に失敗しました/)).toBeInTheDocument();
+      expect(screen.getByText(/Network error/)).toBeInTheDocument();
     });
   });
 
@@ -234,7 +234,7 @@ describe('Home Page', () => {
     fireEvent.click(refreshButton);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/get-receipt-results');
+      expect(mockFetch).toHaveBeenCalledWith('/api/get-receipt-results?limit=50&offset=0');
     });
   });
 });

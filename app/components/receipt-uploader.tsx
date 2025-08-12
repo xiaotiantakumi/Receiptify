@@ -78,8 +78,9 @@ export default function ReceiptUploader({ onUploadComplete, onUploadError }: Rec
       }
 
       onUploadComplete(results);
-    } catch (error: any) {
-      onUploadError(error.message || 'アップロードに失敗しました');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'アップロードに失敗しました';
+      onUploadError(errorMessage);
     } finally {
       setUploading(false);
     }

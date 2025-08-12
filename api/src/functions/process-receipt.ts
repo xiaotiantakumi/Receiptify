@@ -1,18 +1,23 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveReceiptResult } from '../lib/table-storage';
-import { 
-    ProcessReceiptSchema, 
-    GeminiResponseSchema,
-    type ProcessedItem,
-    type GeminiResponse 
+import {
+  ProcessReceiptSchema,
+  GeminiResponseSchema,
+  type ProcessedItem,
+  type GeminiResponse,
 } from '../schemas/validation';
-import { 
-    validateRequestBody, 
-    createErrorResponse, 
-    createSuccessResponse, 
-    performSecurityChecks 
+import {
+  validateRequestBody,
+  createErrorResponse,
+  createSuccessResponse,
+  performSecurityChecks,
 } from '../lib/validation-helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -47,38 +52,48 @@ const GEMINI_PROMPT = `
 - JSONフォーマットを厳密に守る
 `;
 
-async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): Promise<GeminiResponse> {
+async function analyzeReceiptWithGemini(
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<GeminiResponse> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
     const imageParts = [
       {
         inlineData: {
           data: imageBuffer.toString('base64'),
-          mimeType: mimeType
-        }
-      }
+          mimeType: mimeType,
+        },
+      },
     ];
 
     const result = await model.generateContent([GEMINI_PROMPT, ...imageParts]);
     const response = await result.response;
     const text = response.text();
-    
+
     // JSONレスポンスをパース
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Valid JSON response not found in Gemini response');
     }
-    
+
     const rawResponse = JSON.parse(jsonMatch[0]);
-    
+
     // zodスキーマでのデータ検証
     const validationResult = GeminiResponseSchema.safeParse(rawResponse);
     if (!validationResult.success) {
-      console.error('Gemini APIレスポンスのバリデーションエラー:', validationResult.error.issues);
-      throw new Error(`Gemini APIレスポンスの形式が不正です: ${validationResult.error.issues.map(i => i.message).join(', ')}`);
+      console.error(
+        'Gemini APIレスポンスのバリデーションエラー:',
+        validationResult.error.issues
+      );
+      throw new Error(
+        `Gemini APIレスポンスの形式が不正です: ${validationResult.error.issues
+          .map((i) => i.message)
+          .join(', ')}`
+      );
     }
-    
+
     return validationResult.data;
   } catch (error: any) {
     console.error('Error analyzing receipt with Gemini:', error);
@@ -86,13 +101,20 @@ async function analyzeReceiptWithGemini(imageBuffer: Buffer, mimeType: string): 
   }
 }
 
-export async function processReceipt(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export async function processReceipt(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // セキュリティチェック
     performSecurityChecks(request, context, 20); // レシート処理は重い処理なので制限を厳しく
 
     // リクエストボディのバリデーション
-    const { blobName, userId } = await validateRequestBody(request, ProcessReceiptSchema, context);
+    const { blobName, userId } = await validateRequestBody(
+      request,
+      ProcessReceiptSchema,
+      context
+    );
 
     context.log(`Processing receipt: ${blobName} for user: ${userId}`);
 
@@ -110,13 +132,15 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
     if (!exists) {
       return {
         status: 404,
-        jsonBody: { error: 'Receipt image not found' }
+        jsonBody: { error: 'Receipt image not found' },
       };
     }
 
     // ファイルをダウンロード
     const downloadResponse = await blobClient.download();
-    const streamToBuffer = async (readableStream: NodeJS.ReadableStream): Promise<Buffer> => {
+    const streamToBuffer = async (
+      readableStream: NodeJS.ReadableStream
+    ): Promise<Buffer> => {
       return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
         readableStream.on('data', (data) => {
@@ -129,12 +153,14 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
       });
     };
 
-    const imageBuffer = await streamToBuffer(downloadResponse.readableStreamBody!);
+    const imageBuffer = await streamToBuffer(
+      downloadResponse.readableStreamBody!
+    );
 
     // ファイル形式を推定
     const extension = blobName.split('.').pop()?.toLowerCase();
     let mimeType = 'image/jpeg';
-    
+
     switch (extension) {
       case 'png':
         mimeType = 'image/png';
@@ -151,11 +177,16 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
     }
 
     context.log(`Analyzing receipt with Gemini API...`);
-    
+
     // Gemini APIで解析
-    const analysisResult = await analyzeReceiptWithGemini(imageBuffer, mimeType);
-    
-    context.log(`Analysis completed. Found ${analysisResult.items.length} items.`);
+    const analysisResult = await analyzeReceiptWithGemini(
+      imageBuffer,
+      mimeType
+    );
+
+    context.log(
+      `Analysis completed. Found ${analysisResult.items.length} items.`
+    );
 
     const receiptId = blobName.split('.')[0];
 
@@ -167,7 +198,7 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
       totalAmount: analysisResult.totalAmount,
       receiptDate: analysisResult.receiptDate,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
 
     context.log(`Receipt processing completed successfully: ${receiptId}`);
@@ -177,9 +208,8 @@ export async function processReceipt(request: HttpRequest, context: InvocationCo
       receiptId,
       itemCount: analysisResult.items.length,
       totalAmount: analysisResult.totalAmount,
-      receiptDate: analysisResult.receiptDate
+      receiptDate: analysisResult.receiptDate,
     });
-
   } catch (error: unknown) {
     return createErrorResponse(error, context, 500);
   }

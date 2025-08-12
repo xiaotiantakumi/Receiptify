@@ -17,7 +17,7 @@ export async function getReceiptResultsHandler(request: HttpRequest, context: In
     performSecurityChecks(request, context, 200); // 読み取り操作なので制限を緩く
 
     // 認証情報の安全な取得
-    const { userId } = extractUserFromAuth(request, context, false); // 本番環境のみ認証必須
+    const { userId } = extractUserFromAuth(request, context, true); // 開発環境では認証をスキップ
 
     // クエリパラメータのバリデーション
     const queryParams = validateQueryParams(request, GetReceiptResultsSchema, context);

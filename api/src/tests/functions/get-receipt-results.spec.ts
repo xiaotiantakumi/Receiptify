@@ -8,7 +8,8 @@ describe('get-receipt-results endpoint', () => {
   let sourceCode: string;
 
   beforeAll(() => {
-    const filePath = join(__dirname, '../../functions/get-receipt-results.ts');
+    // Read from source directory, not dist
+    const filePath = join(__dirname, '../../../src/functions/get-receipt-results.ts');
     sourceCode = readFileSync(filePath, 'utf-8');
   });
 

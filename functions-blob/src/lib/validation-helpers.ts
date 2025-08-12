@@ -129,7 +129,8 @@ export function validateMimeType(filename: string): string {
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
     'png': 'image/png',
-    'webp': 'image/webp'
+    'webp': 'image/webp',
+    'pdf': 'application/pdf'
   };
   
   const mimeType = extension ? mimeTypes[extension] : null;
