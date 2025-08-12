@@ -1,6 +1,7 @@
 import { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { z } from 'zod';
 import { ValidationError, ErrorResponse } from '../schemas/validation';
+import { UserId } from '../domain/value-objects/UserId';
 
 // OWASP準拠のセキュリティヘッダー
 export const SECURITY_HEADERS = {
@@ -46,13 +47,19 @@ export function extractUserFromAuth(
   request: HttpRequest,
   context: InvocationContext,
   allowLocalDev: boolean = true
-): { userId: string; isLocalDev: boolean } {
+): { userId: UserId; isLocalDev: boolean } {
   const clientPrincipalHeader = request.headers.get('x-ms-client-principal');
   
   if (!clientPrincipalHeader) {
     if (allowLocalDev) {
       context.log('ローカル開発環境: テストユーザーを使用');
-      return { userId: 'test-user-local', isLocalDev: true };
+      try {
+        const userId = UserId.create('test-user-local');
+        return { userId, isLocalDev: true };
+      } catch (error) {
+        context.error('テストユーザーIDの作成に失敗:', error);
+        throw new ValidationError([], 'テストユーザーIDが無効です');
+      }
     }
     throw new ValidationError([], '認証が必要です');
   }
@@ -66,13 +73,14 @@ export function extractUserFromAuth(
       throw new ValidationError([], 'ユーザーIDが見つかりません');
     }
 
-    // ユーザーIDの基本検証
-    const userId = clientPrincipal.userId.trim();
-    if (userId.length === 0 || userId.length > 100) {
-      throw new ValidationError([], '不正なユーザーIDです');
+    // UserId値オブジェクトを作成（バリデーション含む）
+    try {
+      const userId = UserId.create(clientPrincipal.userId);
+      return { userId, isLocalDev: false };
+    } catch (userIdError) {
+      context.error('ユーザーIDの検証に失敗:', userIdError);
+      throw new ValidationError([], `無効なユーザーID: ${userIdError instanceof Error ? userIdError.message : 'Unknown error'}`);
     }
-
-    return { userId, isLocalDev: false };
   } catch (error) {
     if (error instanceof ValidationError) {
       throw error;

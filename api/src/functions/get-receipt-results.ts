@@ -22,12 +22,12 @@ export async function getReceiptResultsHandler(request: HttpRequest, context: In
     // クエリパラメータのバリデーション
     const queryParams = validateQueryParams(request, GetReceiptResultsSchema, context);
 
-    context.log(`Fetching receipt results for user: ${userId}`);
+    context.log(`Fetching receipt results for user: ${userId.toString()}`);
 
     // Table Storageからユーザーのレシート結果を取得
     const results = await getReceiptResults(userId);
 
-    context.log(`Found ${results.length} receipt results for user ${userId}`);
+    context.log(`Found ${results.length} receipt results for user ${userId.toString()}`);
 
     return createSuccessResponse({
       results,

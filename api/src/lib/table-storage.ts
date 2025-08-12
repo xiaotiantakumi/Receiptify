@@ -9,6 +9,7 @@ import {
   parseAndValidateItems
 } from '../schemas/table-storage';
 import { ValidationError } from '../schemas/validation';
+import { UserId } from '../domain/value-objects/UserId';
 
 export type { ReceiptResult, ReceiptItem } from '../schemas/table-storage';
 
@@ -22,7 +23,7 @@ export function getTableClient(): TableClient {
 }
 
 export async function saveReceiptResult(
-  userId: string,
+  userId: UserId,
   receiptId: string,
   data: Partial<ReceiptResult>
 ): Promise<void> {
@@ -30,7 +31,7 @@ export async function saveReceiptResult(
   
   // 入力データのバリデーション
   const updateData = {
-    partitionKey: userId,
+    partitionKey: userId.toPartitionKey(),
     rowKey: receiptId,
     ...data,
     updatedAt: new Date()
@@ -42,7 +43,7 @@ export async function saveReceiptResult(
   }
   
   const entity: ReceiptResult = {
-    partitionKey: userId,
+    partitionKey: userId.toPartitionKey(),
     rowKey: receiptId,
     receiptImageUrl: data.receiptImageUrl || '',
     status: data.status || 'processing',
@@ -59,12 +60,12 @@ export async function saveReceiptResult(
   await tableClient.upsertEntity(entity);
 }
 
-export async function getReceiptResults(userId: string): Promise<ReceiptResult[]> {
+export async function getReceiptResults(userId: UserId): Promise<ReceiptResult[]> {
   const tableClient = getTableClient();
   
   const entities = tableClient.listEntities<ReceiptResult>({
     queryOptions: {
-      filter: `PartitionKey eq '${userId}'`
+      filter: `PartitionKey eq '${userId.toPartitionKey()}'`
     }
   });
   
@@ -76,11 +77,11 @@ export async function getReceiptResults(userId: string): Promise<ReceiptResult[]
   return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function getReceiptResult(userId: string, receiptId: string): Promise<ReceiptResult | null> {
+export async function getReceiptResult(userId: UserId, receiptId: string): Promise<ReceiptResult | null> {
   const tableClient = getTableClient();
   
   try {
-    const entity = await tableClient.getEntity<ReceiptResult>(userId, receiptId);
+    const entity = await tableClient.getEntity<ReceiptResult>(userId.toPartitionKey(), receiptId);
     return entity;
   } catch (error: any) {
     if (error.statusCode === 404) {

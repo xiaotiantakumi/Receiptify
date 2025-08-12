@@ -36,7 +36,7 @@ export async function issueSasToken(request: HttpRequest, context: InvocationCon
         const receiptId = uuidv4();
         const originalFileName = requestData.fileName || 'receipt.jpg'; // デフォルトファイル名
         const fileExtension = originalFileName.split('.').pop()?.toLowerCase() || 'jpg';
-        const blobName = `${userId}/${receiptId}/receipt-${timestamp}.${fileExtension}`;
+        const blobName = `${userId.toString()}/${receiptId}/receipt-${timestamp}.${fileExtension}`;
 
         // SASトークンを生成
         const sasToken = await generateSASToken(containerName, blobName);

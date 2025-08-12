@@ -19,6 +19,7 @@ import {
   createSuccessResponse,
   performSecurityChecks,
 } from '../lib/validation-helpers';
+import { UserId } from '../domain/value-objects/UserId';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -190,8 +191,11 @@ export async function processReceipt(
 
     const receiptId = blobName.split('.')[0];
 
+    // UserIdを値オブジェクトに変換
+    const userIdObj = UserId.create(userId);
+
     // 結果をTable Storageに保存
-    await saveReceiptResult(userId, receiptId, {
+    await saveReceiptResult(userIdObj, receiptId, {
       receiptImageUrl: blobName,
       status: 'completed',
       items: JSON.stringify(analysisResult.items),

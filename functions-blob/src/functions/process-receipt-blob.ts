@@ -18,6 +18,7 @@ import {
   logMemoryUsage,
   formatProcessingResult
 } from '../lib/validation-helpers';
+import { UserId } from '../domain/value-objects/UserId';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -121,6 +122,9 @@ export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, cont
       throw new ValidationError([], 'ユーザーIDを特定できません');
     }
 
+    // UserIdを値オブジェクトに変換（エラーハンドリングでも使用するため上位で定義）
+    const userIdObj = UserId.create(userId);
+
     // Blobデータのバリデーション
     const imageBuffer = validateBlobData(blob);
     const mimeType = validateMimeType(blobName);
@@ -139,7 +143,7 @@ export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, cont
 
     // 結果をTable Storageに保存（リトライ付き）
     await executeWithRetry(
-      () => saveReceiptResult(userId, receiptId, {
+      () => saveReceiptResult(userIdObj, receiptId, {
         receiptImageUrl: blobName,
         status: 'completed',
         items: JSON.stringify(analysisResult.items),
@@ -167,7 +171,17 @@ export const processReceiptBlob: StorageBlobHandler = async (blob: unknown, cont
     try {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
-      await saveReceiptResult(userId, receiptId, {
+      // エラー時もUserId値オブジェクトを作成（もし作成が失敗したらrawidのuserIdを使う）
+      let userIdForSave;
+      try {
+        userIdForSave = UserId.create(userId);
+      } catch (userIdCreateError) {
+        // UserId作成に失敗した場合はエラー保存もスキップ
+        logError(context, 'ユーザーIDバリデーション失敗のためエラー保存をスキップ', userIdCreateError);
+        return;
+      }
+
+      await saveReceiptResult(userIdForSave, receiptId, {
         status: 'failed',
         errorMessage: errorMessage.substring(0, 500), // 長さ制限
         receiptImageUrl: blobName,
