@@ -219,6 +219,10 @@ uploads/
 receipts/
 test-images/
 receipt-samples/
+test/sample-receipts/*.jpg
+test/sample-receipts/*.jpeg
+test/sample-receipts/*.png
+test/sample-receipts/*.webp
 
 # Generated documentation
 docs/api/

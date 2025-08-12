@@ -1,7 +1,7 @@
 # Receiptify Makefile
 # Quick start commands for development and deployment
 
-.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all install-azurite start-azurite stop-azurite demo-storage test-table demo-data
+.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all stop-all install-azurite start-azurite stop-azurite demo-storage test-table demo-data
 
 # Default target
 help:
@@ -20,6 +20,7 @@ help:
 	@echo "  make start-azurite - Start Azurite (local Azure Storage emulator)"
 	@echo "  make stop-azurite  - Stop Azurite Docker container"
 	@echo "  make start-all   - Start all services (SWA + Blob Functions + Azurite)"
+	@echo "  make stop-all    - Stop all services (SWA CLI, Blob Functions, Azurite)"
 	@echo ""
 	@echo "Build & Test:"
 	@echo "  make build       - Build frontend and API"
@@ -38,6 +39,8 @@ help:
 	@echo "  make demo-storage - Start Azurite + create dummy data for Storage Explorer"
 	@echo "  make demo-data    - Create dummy receipt data (requires Azurite running)"
 	@echo "  make test-table   - Run Table Storage tests"
+	@echo "  make test-real-receipts - Test real receipt uploads with AI analysis"
+	@echo "  make test-upload-receipt RECEIPT=file.jpg - Upload single receipt file"
 	@echo "  make check-git    - Check .gitignore configuration and git status"
 
 # Install dependencies
@@ -116,20 +119,42 @@ stop-azurite:
 	docker-compose stop azurite
 	@echo "✅ Azurite stopped"
 
+# Stop all services (SWA CLI, Blob Functions, Azurite)
+stop-all:
+	@echo "🛑 Stopping all services..."
+	@echo "  🔪 Killing development server processes..."
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || echo "    Port 3000 is clear"
+	@lsof -ti:4280 | xargs kill -9 2>/dev/null || echo "    Port 4280 (SWA CLI) is clear"
+	@lsof -ti:7071 | xargs kill -9 2>/dev/null || echo "    Port 7071 is clear"
+	@lsof -ti:7072 | xargs kill -9 2>/dev/null || echo "    Port 7072 (Blob Functions) is clear"
+	@echo "  🐳 Stopping Docker containers..."
+	@docker-compose stop azurite 2>/dev/null || echo "    Azurite was not running"
+	@echo "✅ All services stopped"
+
 # Start all services (SWA + Blob Functions + Azurite)
-start-all: kill-ports
-	@echo "🚀 Starting all services..."
-	@echo "  ⏱️  Waiting 3 seconds after port cleanup..."
-	@sleep 3
+start-all: stop-all
+	@echo "🚀 Starting all services with extended wait times..."
+	@echo "  ⏱️  Waiting 5 seconds after cleanup..."
+	@sleep 5
 	@echo "📁 Creating Azurite data directory..."
 	@mkdir -p azurite-data
 	@echo "🐳 Starting Azurite (local Azure Storage emulator) with Docker..."
+	@echo "  🔍 Checking Docker daemon status..."
+	@docker info > /dev/null 2>&1 || (echo "❌ Docker daemon not running. Please start Docker Desktop first." && exit 1)
 	docker-compose up -d azurite
-	@sleep 3
-	@echo "Starting Blob Functions on port 7072..."
+	@echo "  ⏱️  Waiting 10 seconds for Azurite to fully initialize..."
+	@sleep 10
+	@echo "  ✅ Verifying Azurite container is running..."
+	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
+	@echo "🔧 Starting API server on port 7071..."
+	cd api && npm run start &
+	@echo "  ⏱️  Waiting 8 seconds for API server to start..."
+	@sleep 8
+	@echo "🔗 Starting Blob Functions on port 7072..."
 	cd functions-blob && FUNCTIONS_CUSTOMHANDLER_PORT=7072 npm run start &
-	@sleep 2
-	@echo "Starting SWA CLI..."
+	@echo "  ⏱️  Waiting 5 seconds for Blob Functions to start..."
+	@sleep 5
+	@echo "🌐 Starting SWA CLI..."
 	npm run swa:all
 
 # Build everything
@@ -251,6 +276,30 @@ demo-data:
 test-table:
 	@echo "🧪 Running Table Storage tests..."
 	npm run test:table-storage
+
+# Test real receipt uploads and AI analysis
+test-real-receipts:
+	@echo "🧪 Testing real receipt uploads and AI analysis..."
+	@echo "📋 This will test all receipt files in test/sample-receipts/"
+	@echo "⚠️  Ensure the following are running:"
+	@echo "   - Azurite (make start-azurite)"
+	@echo "   - Blob Functions (make start-blob)"
+	@echo "   - GEMINI_API_KEY is configured"
+	@echo ""
+	npm run test:real-receipts
+
+# Upload and test a single receipt file
+test-upload-receipt:
+	@echo "🧪 Upload and test a single receipt file..."
+	@echo "📖 Usage: make test-upload-receipt RECEIPT=filename.jpg"
+	@echo "📂 Place receipt files in test/sample-receipts/"
+	@echo ""
+	@if [ -z "$(RECEIPT)" ]; then \
+		echo "❌ Please specify RECEIPT parameter"; \
+		echo "   Example: make test-upload-receipt RECEIPT=receipt_20241201_コンビニ_1580.jpg"; \
+		exit 1; \
+	fi
+	npm run test:upload-receipt $(RECEIPT)
 
 # Check .gitignore configuration
 check-git:
