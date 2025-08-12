@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom';
 
+// Node.js polyfills for Azure Functions compatibility
+const { TextDecoder, TextEncoder } = require('util');
+global.TextDecoder = TextDecoder;
+global.TextEncoder = TextEncoder;
+
 // Configure React Testing Library
 import { configure } from '@testing-library/react';
 
