@@ -1,0 +1,23 @@
+### Health Check
+GET http://localhost:7071/api/health
+
+### Get Receipt Results
+GET http://localhost:7071/api/get-receipt-results?userId=your-user-id
+
+### Issue SAS Token
+POST http://localhost:7071/api/issue-sas-token
+Content-Type: application/json
+
+{
+  "fileName": "test-receipt.jpg",
+  "userId": "1234567890"
+}
+
+### Process Receipt
+POST http://localhost:7071/api/processReceipt
+Content-Type: application/json
+
+{
+  "blobName": "your-user-id/your-receipt-id/receipt-timestamp.jpg",
+  "userId": "your-user-id"
+}

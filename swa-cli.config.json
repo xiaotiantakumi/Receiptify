@@ -5,8 +5,7 @@
       "appDevserverUrl": "http://localhost:3000",
       "apiLocation": "api",
       "run": "npm run dev",
-      "appDevserverTimeout": 120000,
-      "configLocation": "staticwebapp.config.local.json"
+      "appDevserverTimeout": 120000
     }
   }
 }
