@@ -195,8 +195,10 @@ describe('ReceiptDate', () => {
       const utcNow = dayjs.utc();
       const japanNow = utcNow.add(9, 'hours');
       
-      // 日本時間がUTCより9時間進んでいることを確認
-      expect(japanNow.hour() - utcNow.hour()).toBe(9);
+      // 日本時間がUTCより9時間進んでいることを確認（日付境界の場合は24で調整）
+      const hourDiff = japanNow.hour() - utcNow.hour();
+      const expectedDiff = hourDiff < 0 ? hourDiff + 24 : hourDiff;
+      expect(expectedDiff).toBe(9);
     });
   });
 
