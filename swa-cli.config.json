@@ -6,7 +6,6 @@
       "apiLocation": "api",
       "run": "npm run dev",
       "appDevserverTimeout": 120000,
-      "authEnabled": true,
       "configLocation": "staticwebapp.config.local.json"
     }
   }

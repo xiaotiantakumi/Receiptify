@@ -115,7 +115,13 @@ export default function ReceiptUploader({ onUploadComplete, onUploadError }: Rec
   if (!user) {
     return (
       <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-        <p className="text-gray-500">レシートをアップロードするにはログインしてください</p>
+        <p className="text-gray-500 mb-4">レシートをアップロードするにはログインしてください</p>
+        <a
+          href="/.auth/login/aad"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          開発用ログイン
+        </a>
       </div>
     );
   }
