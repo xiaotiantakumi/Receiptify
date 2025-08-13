@@ -1,0 +1,69 @@
+name: Main Branch Full CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  full-test-suite:
+    name: Complete Test Suite
+    runs-on: ubuntu-latest
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite:latest
+        ports:
+          - 10000:10000
+          - 10001:10001
+          - 10002:10002
+        env:
+          AZURITE_ACCOUNTS: "devstoreaccount1:Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+          
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            api/package-lock.json
+            functions-blob/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd api && npm ci
+          cd ../functions-blob && npm ci
+          
+      - name: Wait for Azurite
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:10002/ 2>/dev/null; then
+              echo "Azurite is ready"
+              break
+            fi
+            echo "Waiting for Azurite... ($i/30)"
+            sleep 2
+          done
+          
+      - name: Run Complete Test Suite
+        run: make test
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10000/devstoreaccount1;QueueEndpoint=http://localhost:10001/devstoreaccount1;TableEndpoint=http://localhost:10002/devstoreaccount1;"
+          
+      - name: Generate Coverage Reports
+        run: |
+          cd api && npm run test:coverage
+          cd ../functions-blob && npm run test:coverage
+          
+      - name: Upload Coverage to GitHub
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: |
+            api/coverage/
+            functions-blob/coverage/

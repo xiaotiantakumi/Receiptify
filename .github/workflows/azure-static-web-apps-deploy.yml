@@ -16,6 +16,8 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    # テストが成功した場合のみデプロイを実行
+    needs: []
     permissions:
       id-token: write
       contents: read
@@ -52,5 +54,4 @@ jobs:
           api_build_command: 'npm run build'
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           production_branch: 'main'
-          pull_request_id: ${{ github.event.pull_request.number }}
           ###### End of Repository/Build Configurations ######
