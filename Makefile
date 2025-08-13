@@ -140,7 +140,18 @@ start-all: stop-all
 	@mkdir -p azurite-data
 	@echo "🐳 Starting Azurite (local Azure Storage emulator) with Docker..."
 	@echo "  🔍 Checking Docker daemon status..."
-	@docker info > /dev/null 2>&1 || (echo "❌ Docker daemon not running. Please start Docker Desktop first." && exit 1)
+	@docker info > /dev/null 2>&1 || (echo "" && \
+		echo "❌ Docker daemon not running. Please start Docker Desktop first." && \
+		echo "" && \
+		echo "💡 Alternative: Use 'make start' for development without Docker dependencies" && \
+		echo "   This starts SWA CLI + API only (sufficient for authentication testing)" && \
+		echo "" && \
+		echo "📋 To fix this error:" && \
+		echo "   1. Start Docker Desktop application" && \
+		echo "   2. Wait for Docker to fully initialize" && \
+		echo "   3. Run 'make start-all' again" && \
+		echo "" && \
+		exit 1)
 	docker-compose up -d azurite
 	@echo "  ⏱️  Waiting 10 seconds for Azurite to fully initialize..."
 	@sleep 10

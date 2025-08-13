@@ -126,6 +126,27 @@ make build: Azureへのデプロイや本番環境での動作確認のために
 5.  ブラウザで `http://localhost:4280` を開く。
 6.  API: `http://localhost:7071`、Blob Functions: `http://localhost:7072` で利用可能。
 
+## ローカル開発環境での認証
+
+ローカル開発では、SWA CLIの認証エミュレーターを使用します。実際のAzure ADやGoogle認証を設定する必要はありません。
+
+### ログイン方法
+1. `make start`でローカル環境を起動
+2. アプリのレシートアップロード画面などに表示される「開発用ログイン」ボタンをクリック
+3. SWA CLIのログインフォームが表示される
+4. テストしたいユーザー情報を入力：
+   - **User ID**: `testuser-12345`（任意のID）
+   - **User Name**: `testuser@example.com`（メールアドレス形式）
+   - **管理者としてテスト**: `Roles`フィールドに `authenticated,admin`
+   - **一般ユーザーとしてテスト**: `Roles`フィールドに `authenticated`
+5. 「Login」ボタンでログイン完了
+
+### 認証状態の確認
+現在のログイン情報は、ブラウザで `http://localhost:4280/.auth/me` にアクセスして確認できます。
+
+### ログアウト
+`http://localhost:4280/.auth/logout` にアクセスしてログアウトできます。
+
 ## カスタマイズガイド
 
 ### 新しい解析機能の追加
