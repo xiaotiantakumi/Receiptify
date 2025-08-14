@@ -150,6 +150,17 @@ make start-blob   # Blob Functionsのみ
 make start-azurite # Azuriteのみ
 ```
 
+**⚠️ 重要：Azurite CORS設定**
+
+`docker compose up` でAzuriteを起動した後、必ず以下のスクリプトを実行してください：
+
+```bash
+# AzuriteのCORS設定（必須）
+./set-azurite-cors.sh
+```
+
+この設定を行わないと、いくつかのFunctionsでCORSエラーが発生します。
+
 ### ローカル開発環境
 
 プロジェクトでは Azurite を使用してローカルで Azure Storage をエミュレートします：
