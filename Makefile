@@ -112,6 +112,13 @@ start-azurite:
 	@echo "  Queue Storage: http://127.0.0.1:10001"
 	@mkdir -p azurite-data
 	docker-compose up -d azurite
+	@echo "  ⏱️  Waiting 10 seconds for Azurite to fully initialize..."
+	@sleep 5
+	@echo "  ✅ Verifying Azurite container is running..."
+	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
+	@echo "🔧 Setting up CORS for Azurite..."
+	./set-azurite-cors.sh
+	@echo "✅ CORS setup complete"
 
 # Stop Azurite Docker container
 stop-azurite:
@@ -157,6 +164,9 @@ start-all: stop-all build
 	@sleep 10
 	@echo "  ✅ Verifying Azurite container is running..."
 	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
+	@echo "🔧 Setting up CORS for Azurite..."
+	./set-azurite-cors.sh
+	@echo "✅ CORS setup complete"
 	@echo "🔧 Starting API server on port 7071..."
 	cd api && npm run start &
 	@echo "  ⏱️  Waiting 8 seconds for API server to start..."
