@@ -5,18 +5,15 @@ import {
   InvocationContext,
 } from '@azure/functions';
 import {
-  generateSASToken,
+  generateDirectorySASToken,
   getUserContainerName,
   getBlobServiceClient,
 } from '../lib/storage';
-import { v4 as uuidv4 } from 'uuid';
-import { IssueSasTokenSchema } from '../schemas/validation';
 import {
   extractUserFromAuth,
   createErrorResponse,
   createSuccessResponse,
   performSecurityChecks,
-  validateRequestBody,
 } from '../lib/validation-helpers';
 
 export async function issueSasToken(
@@ -29,13 +26,6 @@ export async function issueSasToken(
     // セキュリティチェック
     performSecurityChecks(request, context, 50); // SASトークン発行は制限を厳しく
 
-    // リクエストボディのバリデーション
-    const requestData = await validateRequestBody(
-      request,
-      IssueSasTokenSchema,
-      context
-    );
-
     // 認証情報の安全な取得
     const { userId } = extractUserFromAuth(request, context, true);
 
@@ -47,27 +37,23 @@ export async function issueSasToken(
     const containerClient = blobServiceClient.getContainerClient(containerName);
     await containerClient.createIfNotExists();
 
-    // ユーザー別ディレクトリ構造でBlob名を生成
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const receiptId = uuidv4();
-    const originalFileName = requestData.fileName || 'receipt.jpg'; // デフォルトファイル名
-    const fileExtension =
-      originalFileName.split('.').pop()?.toLowerCase() || 'jpg';
-    const blobName = `${userId.toString()}/${receiptId}/receipt-${timestamp}.${fileExtension}`;
+    // 年度別ディレクトリ構造を生成（デフォルト：2025年度）
+    const currentYear = new Date().getFullYear();
+    const fiscalYear = currentYear; // 実際には会計年度の計算ロジックを実装可能
+    const directoryPrefix = `${userId.toString()}/${fiscalYear}`;
 
-    // SASトークンを生成
-    const sasToken = await generateSASToken(containerName, blobName);
+    // ディレクトリ全体への書き込み権限を持つSASトークンを生成
+    const sasToken = await generateDirectorySASToken(containerName);
 
-    // Blob URLを構築
-    const blobUrl = `${containerClient.url}/${blobName}`;
-    const sasUrl = `${blobUrl}?${sasToken}`;
+    // コンテナのベースURLを構築
+    const containerUrl = containerClient.url;
 
     return createSuccessResponse({
       containerName,
-      blobName,
-      receiptId,
-      sasUrl,
-      blobUrl,
+      directoryPrefix,
+      fiscalYear,
+      sasToken,
+      containerUrl,
       expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1時間後
     });
   } catch (error: unknown) {

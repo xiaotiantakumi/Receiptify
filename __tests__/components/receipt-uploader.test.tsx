@@ -106,9 +106,12 @@ describe('ReceiptUploader', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          sasUrl: 'https://test.blob.core.windows.net/container/file?sas=token',
-          receiptId: 'receipt-123',
-          blobUrl: 'https://test.blob.core.windows.net/container/file',
+          containerName: 'receipts',
+          directoryPrefix: 'user123/2025',
+          fiscalYear: 2025,
+          sasToken: 'sv=2022-11-02&ss=b&srt=sco&sp=rwdlacupiytfx&se=2025-08-14T02:37:36Z&st=2025-08-14T01:37:36Z&spr=https&sig=example',
+          containerUrl: 'https://test.blob.core.windows.net/receipts',
+          expiresAt: '2025-08-14T02:37:36.455Z',
         }),
       })
       .mockResolvedValueOnce({
@@ -145,18 +148,28 @@ describe('ReceiptUploader', () => {
     });
 
     await waitFor(() => {
-      expect(mockOnUploadComplete).toHaveBeenCalledWith([
-        {
-          receiptId: 'receipt-123',
-          blobUrl: 'https://test.blob.core.windows.net/container/file',
-          fileName: 'test.jpg',
-        },
-      ]);
+      expect(mockOnUploadComplete).toHaveBeenCalledTimes(1);
+      const callArgs = mockOnUploadComplete.mock.calls[0][0];
+      
+      expect(callArgs).toHaveLength(1);
+      expect(callArgs[0]).toMatchObject({
+        fileName: 'test.jpg',
+      });
+      
+      // UUIDの形式を確認（具体的な値ではなく形式のみ）
+      expect(callArgs[0].receiptId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      
+      // blob URLの形式を確認
+      expect(callArgs[0].blobUrl).toMatch(new RegExp(
+        `^https://test\\.blob\\.core\\.windows\\.net/receipts/user123/2025/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipt-\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}-\\d{3}Z\\.jpg$`
+      ));
     });
   });
 
   it('should handle non-image file error', async () => {
     (auth.getUserInfo as jest.Mock).mockResolvedValue(mockUser);
+
+    // ファイル検証はSASトークン取得前に実行されるため、モックは不要
 
     await act(async () => {
       render(
@@ -181,10 +194,15 @@ describe('ReceiptUploader', () => {
     await waitFor(() => {
       expect(mockOnUploadError).toHaveBeenCalledWith('test.txt は画像ファイルではありません');
     });
+
+    // SASトークン取得のAPI呼び出しは実行されないことを確認
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('should handle large file error', async () => {
     (auth.getUserInfo as jest.Mock).mockResolvedValue(mockUser);
+
+    // ファイルサイズ検証はSASトークン取得前に実行されるため、モックは不要
 
     await act(async () => {
       render(
@@ -214,6 +232,9 @@ describe('ReceiptUploader', () => {
     await waitFor(() => {
       expect(mockOnUploadError).toHaveBeenCalledWith('large.jpg のサイズが大きすぎます (最大10MB)');
     });
+
+    // SASトークン取得のAPI呼び出しは実行されないことを確認
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('should handle SAS token fetch error', async () => {
@@ -258,9 +279,12 @@ describe('ReceiptUploader', () => {
         setTimeout(() => resolve({
           ok: true,
           json: () => Promise.resolve({
-            sasUrl: 'https://test.blob.core.windows.net/container/file?sas=token',
-            receiptId: 'receipt-123',
-            blobUrl: 'https://test.blob.core.windows.net/container/file',
+            containerName: 'receipts',
+            directoryPrefix: 'user123/2025',
+            fiscalYear: 2025,
+            sasToken: 'sv=2022-11-02&ss=b&srt=sco&sp=rwdlacupiytfx&se=2025-08-14T02:37:36Z&st=2025-08-14T01:37:36Z&spr=https&sig=example',
+            containerUrl: 'https://test.blob.core.windows.net/receipts',
+            expiresAt: '2025-08-14T02:37:36.455Z',
           }),
         }), 100)
       )

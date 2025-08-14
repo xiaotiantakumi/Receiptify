@@ -14,35 +14,57 @@ interface ReceiptUploaderProps {
   onUploadError: (error: string) => void;
 }
 
-export default function ReceiptUploader({ onUploadComplete, onUploadError }: ReceiptUploaderProps) {
+export default function ReceiptUploader({
+  onUploadComplete,
+  onUploadError,
+}: ReceiptUploaderProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
-  const uploadFiles = useCallback(async (files: FileList) => {
-    if (!user) {
-      onUploadError('ログインが必要です');
-      return;
-    }
+  const uploadFiles = useCallback(
+    async (files: FileList) => {
+      if (!user) {
+        onUploadError('ログインが必要です');
+        return;
+      }
 
-    setUploading(true);
-    const results: UploadResult[] = [];
+      setUploading(true);
+      const results: UploadResult[] = [];
 
-    try {
-      for (const file of Array.from(files)) {
-        // ファイルタイプチェック
-        if (!file.type.startsWith('image/')) {
-          onUploadError(`${file.name} は画像ファイルではありません`);
-          continue;
+      try {
+        // まず全ファイルの検証を行う
+        const validFiles: File[] = [];
+        const errors: string[] = [];
+        
+        for (const file of Array.from(files)) {
+          // ファイルタイプチェック
+          if (!file.type.startsWith('image/')) {
+            errors.push(`${file.name} は画像ファイルではありません`);
+            continue;
+          }
+
+          // ファイルサイズチェック (10MB制限)
+          if (file.size > 10 * 1024 * 1024) {
+            errors.push(`${file.name} のサイズが大きすぎます (最大10MB)`);
+            continue;
+          }
+
+          validFiles.push(file);
         }
 
-        // ファイルサイズチェック (10MB制限)
-        if (file.size > 10 * 1024 * 1024) {
-          onUploadError(`${file.name} のサイズが大きすぎます (最大10MB)`);
-          continue;
+        // エラーがある場合は最初のエラーを報告
+        if (errors.length > 0) {
+          onUploadError(errors[0]);
+          return;
         }
 
-        // SASトークンを取得
+        // 有効なファイルがない場合は何もしない
+        if (validFiles.length === 0) {
+          return;
+        }
+
+        // 一度だけSASトークンを取得（複数ファイル共通）
         const tokenResponse = await fetch('/api/issue-sas-token', {
           method: 'POST',
           headers: {
@@ -51,40 +73,62 @@ export default function ReceiptUploader({ onUploadComplete, onUploadError }: Rec
         });
 
         if (!tokenResponse.ok) {
-          throw new Error(`SASトークンの取得に失敗しました: ${tokenResponse.statusText}`);
+          throw new Error(
+            `SASトークンの取得に失敗しました: ${tokenResponse.statusText}`
+          );
         }
 
         const tokenData = await tokenResponse.json();
 
-        // Blob Storageに直接アップロード
-        const uploadResponse = await fetch(tokenData.sasUrl, {
-          method: 'PUT',
-          headers: {
-            'x-ms-blob-type': 'BlockBlob',
-            'Content-Type': file.type,
-          },
-          body: file,
-        });
+        for (const file of validFiles) {
 
-        if (!uploadResponse.ok) {
-          throw new Error(`ファイルのアップロードに失敗しました: ${uploadResponse.statusText}`);
+          // ファイル名とIDを生成
+          const receiptId = crypto.randomUUID();
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `receipt-${timestamp}.${fileExtension}`;
+          const blobName = `${tokenData.directoryPrefix}/${receiptId}/${fileName}`;
+
+          // Blob URLを構築
+          const blobUrl = `${tokenData.containerUrl}/${blobName}?${tokenData.sasToken}`;
+
+          // Blob Storageに直接アップロード
+          const uploadResponse = await fetch(blobUrl, {
+            method: 'PUT',
+            headers: {
+              'x-ms-blob-type': 'BlockBlob',
+              'Content-Type': file.type,
+            },
+            body: file,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(
+              `ファイルのアップロードに失敗しました: ${uploadResponse.statusText}`
+            );
+          }
+
+          // SASトークンを除いたクリーンなURLを作成
+          const cleanBlobUrl = `${tokenData.containerUrl}/${blobName}`;
+
+          results.push({
+            receiptId,
+            blobUrl: cleanBlobUrl,
+            fileName: file.name,
+          });
         }
 
-        results.push({
-          receiptId: tokenData.receiptId,
-          blobUrl: tokenData.blobUrl,
-          fileName: file.name,
-        });
+        onUploadComplete(results);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'アップロードに失敗しました';
+        onUploadError(errorMessage);
+      } finally {
+        setUploading(false);
       }
-
-      onUploadComplete(results);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'アップロードに失敗しました';
-      onUploadError(errorMessage);
-    } finally {
-      setUploading(false);
-    }
-  }, [user, onUploadComplete, onUploadError]);
+    },
+    [user, onUploadComplete, onUploadError]
+  );
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -96,28 +140,36 @@ export default function ReceiptUploader({ onUploadComplete, onUploadError }: Rec
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      uploadFiles(e.dataTransfer.files);
-    }
-  }, [uploadFiles]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      uploadFiles(e.target.files);
-    }
-  }, [uploadFiles]);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        uploadFiles(e.dataTransfer.files);
+      }
+    },
+    [uploadFiles]
+  );
+
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        uploadFiles(e.target.files);
+      }
+    },
+    [uploadFiles]
+  );
 
   if (!user) {
     return (
       <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-        <p className="text-gray-500 mb-4">レシートをアップロードするにはログインしてください</p>
+        <p className="text-gray-500 mb-4">
+          レシートをアップロードするにはログインしてください
+        </p>
         <button
-          onClick={() => window.location.href = '/.auth/login/aad'}
+          onClick={() => (window.location.href = '/.auth/login/aad')}
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
           開発用ログイン
@@ -132,7 +184,9 @@ export default function ReceiptUploader({ onUploadComplete, onUploadError }: Rec
         dragActive
           ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950'
           : 'border-gray-300 dark:border-gray-600'
-      } ${uploading ? 'opacity-50 pointer-events-none' : 'hover:border-indigo-400'}`}
+      } ${
+        uploading ? 'opacity-50 pointer-events-none' : 'hover:border-indigo-400'
+      }`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -147,7 +201,7 @@ export default function ReceiptUploader({ onUploadComplete, onUploadError }: Rec
         onChange={handleFileInput}
         disabled={uploading}
       />
-      
+
       {uploading ? (
         <div className="space-y-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>

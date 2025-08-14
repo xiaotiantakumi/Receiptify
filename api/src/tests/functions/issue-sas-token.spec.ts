@@ -46,12 +46,13 @@ describe('issue-sas-token endpoint', () => {
     expect(funcString).toContain('extractUserFromAuth');
   });
 
-  it('should validate request body', () => {
+  it('should not require request body validation for multiple file upload', () => {
     const module = require('../../functions/issue-sas-token');
     const funcString = module.issueSasToken.toString();
     
-    expect(funcString).toContain('validateRequestBody');
-    expect(funcString).toContain('fileName'); // リクエストデータからファイル名を取得
+    // 複数ファイル対応のため、個別ファイル名バリデーションは不要
+    expect(funcString).not.toContain('validateRequestBody');
+    expect(funcString).not.toContain('fileName'); // リクエストからファイル名は取得しない
   });
 
   it('should access blob storage', () => {
@@ -62,11 +63,11 @@ describe('issue-sas-token endpoint', () => {
     expect(funcString).toContain('receipts'); // 固定コンテナ名を使用
   });
 
-  it('should generate SAS tokens', () => {
+  it('should generate directory-level SAS tokens', () => {
     const module = require('../../functions/issue-sas-token');
     const funcString = module.issueSasToken.toString();
     
-    expect(funcString).toContain('generateSASToken');
+    expect(funcString).toContain('generateDirectorySASToken');
   });
 
   it('should create containers if not exists', () => {
@@ -76,22 +77,22 @@ describe('issue-sas-token endpoint', () => {
     expect(funcString).toContain('createIfNotExists');
   });
 
-  it('should generate unique blob names with user directory structure', () => {
+  it('should create fiscal year-based directory structure', () => {
     const module = require('../../functions/issue-sas-token');
     const funcString = module.issueSasToken.toString();
     
-    expect(funcString).toContain('v4'); // uuid.v4()
-    expect(funcString).toContain('toISOString');
+    expect(funcString).toContain('fiscalYear'); // 年度別ディレクトリ
+    expect(funcString).toContain('directoryPrefix'); // ディレクトリプレフィックス
     expect(funcString).toContain('userId'); // ユーザー別ディレクトリ構造
   });
 
-  it('should return success response with SAS URL', () => {
+  it('should return success response with container access info', () => {
     const module = require('../../functions/issue-sas-token');
     const funcString = module.issueSasToken.toString();
     
     expect(funcString).toContain('createSuccessResponse');
-    expect(funcString).toContain('sasUrl');
-    expect(funcString).toContain('blobUrl');
+    expect(funcString).toContain('sasToken'); // SASトークン
+    expect(funcString).toContain('containerUrl'); // コンテナURL
   });
 
   it('should include expiration time', () => {
