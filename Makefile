@@ -132,7 +132,7 @@ stop-all:
 	@echo "✅ All services stopped"
 
 # Start all services (SWA + Blob Functions + Azurite)
-start-all: stop-all
+start-all: stop-all build
 	@echo "🚀 Starting all services with extended wait times..."
 	@echo "  ⏱️  Waiting 5 seconds after cleanup..."
 	@sleep 5
