@@ -30,7 +30,6 @@ interface ReceiptResult {
 }
 
 interface UploadResult {
-  receiptId: string;
   blobUrl: string;
   fileName: string;
 }
@@ -81,7 +80,7 @@ export default function Home() {
   const handleUploadComplete = useCallback((uploadResults: UploadResult[]) => {
     // アップロード完了時に新しい処理中のレシートを結果リストに追加
     const newResults: ReceiptResult[] = uploadResults.map(upload => ({
-      receiptId: upload.receiptId,
+      receiptId: upload.fileName, // ファイル名をキーとして使用
       fileName: upload.fileName,
       status: 'processing' as const,
       receiptImageUrl: upload.blobUrl,

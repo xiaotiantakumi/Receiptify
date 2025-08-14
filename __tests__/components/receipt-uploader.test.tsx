@@ -156,13 +156,10 @@ describe('ReceiptUploader', () => {
         fileName: 'test.jpg',
       });
       
-      // UUIDの形式を確認（具体的な値ではなく形式のみ）
-      expect(callArgs[0].receiptId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-      
-      // blob URLの形式を確認
-      expect(callArgs[0].blobUrl).toMatch(new RegExp(
-        `^https://test\\.blob\\.core\\.windows\\.net/receipts/user123/2025/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipt-\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}-\\d{3}Z\\.jpg$`
-      ));
+      // blob URLの形式を確認（directoryPrefix/fileNameの形式）
+      expect(callArgs[0].blobUrl).toMatch(
+        /^https:\/\/test\.blob\.core\.windows\.net\/receipts\/user123\/2025\/test\.jpg$/
+      );
     });
   });
 

@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 
 interface UploadResult {
-  receiptId: string;
   blobUrl: string;
   fileName: string;
 }
@@ -36,7 +35,7 @@ export default function ReceiptUploader({
         // まず全ファイルの検証を行う
         const validFiles: File[] = [];
         const errors: string[] = [];
-        
+
         for (const file of Array.from(files)) {
           // ファイルタイプチェック
           if (!file.type.startsWith('image/')) {
@@ -81,13 +80,7 @@ export default function ReceiptUploader({
         const tokenData = await tokenResponse.json();
 
         for (const file of validFiles) {
-
-          // ファイル名とIDを生成
-          const receiptId = crypto.randomUUID();
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-          const fileName = `receipt-${timestamp}.${fileExtension}`;
-          const blobName = `${tokenData.directoryPrefix}/${receiptId}/${fileName}`;
+          const blobName = `${tokenData.directoryPrefix}/${file.name}`;
 
           // Blob URLを構築
           const blobUrl = `${tokenData.containerUrl}/${blobName}?${tokenData.sasToken}`;
@@ -112,7 +105,6 @@ export default function ReceiptUploader({
           const cleanBlobUrl = `${tokenData.containerUrl}/${blobName}`;
 
           results.push({
-            receiptId,
             blobUrl: cleanBlobUrl,
             fileName: file.name,
           });
