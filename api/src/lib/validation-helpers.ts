@@ -1,4 +1,8 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import {
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from '@azure/functions';
 import { z } from 'zod';
 import { ValidationError, ErrorResponse } from '../schemas/validation';
 import { UserId } from '../domain/value-objects/UserId';
@@ -11,8 +15,8 @@ export const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Content-Security-Policy': "default-src 'self'",
   'Cache-Control': 'no-cache, no-store, must-revalidate',
-  'Pragma': 'no-cache',
-  'Expires': '0'
+  Pragma: 'no-cache',
+  Expires: '0',
 } as const;
 
 // レート制限のためのメモリキャッシュ（本番環境ではRedis等を使用推奨）
@@ -26,18 +30,18 @@ export function checkRateLimit(
 ): boolean {
   const now = Date.now();
   const windowMs = windowMinutes * 60 * 1000;
-  
+
   const current = rateLimitMap.get(identifier);
-  
+
   if (!current || now > current.resetTime) {
     rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs });
     return true;
   }
-  
+
   if (current.count >= maxRequests) {
     return false;
   }
-  
+
   current.count++;
   return true;
 }
@@ -48,19 +52,37 @@ export function extractUserFromAuth(
   context: InvocationContext,
   allowLocalDev: boolean = true
 ): { userId: UserId; isLocalDev: boolean } {
-  const clientPrincipalHeader = request.headers.get('x-ms-client-principal');
-  
+  // まずx-ms-client-principalヘッダーを確認（Azure Functions標準）
+  let clientPrincipalHeader = request.headers.get('x-ms-client-principal');
+
+  // x-ms-client-principalがない場合、Cookieから認証情報を取得
   if (!clientPrincipalHeader) {
-    if (allowLocalDev) {
-      context.log('ローカル開発環境: テストユーザーを使用');
-      try {
-        const userId = UserId.create('test-user-local');
-        return { userId, isLocalDev: true };
-      } catch (error) {
-        context.error('テストユーザーIDの作成に失敗:', error);
-        throw new ValidationError([], 'テストユーザーIDが無効です');
+    console.log('cookieHeaderから認証情報を取得');
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) {
+      const authCookieMatch = cookieHeader.match(
+        /StaticWebAppsAuthCookie=([^;]+)/
+      );
+      if (authCookieMatch) {
+        try {
+          const authCookieValue = decodeURIComponent(authCookieMatch[1]);
+          // Base64デコードしてからJSONパース
+          const decodedValue = Buffer.from(authCookieValue, 'base64').toString(
+            'utf-8'
+          );
+          const authData = JSON.parse(decodedValue);
+          if (authData.userId) {
+            context.log('Cookieから認証情報を取得:', authData.userId);
+            const userId = UserId.create(authData.userId);
+            return { userId, isLocalDev: false };
+          }
+        } catch (error) {
+          context.log('Cookieの解析に失敗:', error);
+        }
       }
     }
+
+    // 認証情報が見つからない場合はエラー
     throw new ValidationError([], '認証が必要です');
   }
 
@@ -79,7 +101,12 @@ export function extractUserFromAuth(
       return { userId, isLocalDev: false };
     } catch (userIdError) {
       context.error('ユーザーIDの検証に失敗:', userIdError);
-      throw new ValidationError([], `無効なユーザーID: ${userIdError instanceof Error ? userIdError.message : 'Unknown error'}`);
+      throw new ValidationError(
+        [],
+        `無効なユーザーID: ${
+          userIdError instanceof Error ? userIdError.message : 'Unknown error'
+        }`
+      );
     }
   } catch (error) {
     if (error instanceof ValidationError) {
@@ -100,7 +127,10 @@ export async function validateRequestBody<T>(
     // Content-Typeの検証
     const contentType = request.headers.get('content-type');
     if (contentType && !contentType.includes('application/json')) {
-      throw new ValidationError([], 'Content-Typeはapplication/jsonである必要があります');
+      throw new ValidationError(
+        [],
+        'Content-Typeはapplication/jsonである必要があります'
+      );
     }
 
     // ボディサイズの制限（1MB）
@@ -173,13 +203,13 @@ export function createErrorResponse(
     return {
       status: 400,
       headers,
-      jsonBody: error.toResponse()
+      jsonBody: error.toResponse(),
     };
   }
 
   // 本番環境では詳細なエラー情報を隠す
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   if (isProduction) {
     context.error('内部エラー:', error);
     return {
@@ -187,8 +217,8 @@ export function createErrorResponse(
       headers,
       jsonBody: {
         error: 'Internal Server Error',
-        message: 'サーバー内部でエラーが発生しました'
-      } satisfies ErrorResponse
+        message: 'サーバー内部でエラーが発生しました',
+      } satisfies ErrorResponse,
     };
   } else {
     // 開発環境では詳細を表示
@@ -199,8 +229,8 @@ export function createErrorResponse(
       headers,
       jsonBody: {
         error: 'Internal Server Error',
-        message: `開発環境: ${message}`
-      } satisfies ErrorResponse
+        message: `開発環境: ${message}`,
+      } satisfies ErrorResponse,
     };
   }
 }
@@ -216,9 +246,9 @@ export function createSuccessResponse<T>(
     headers: {
       ...SECURITY_HEADERS,
       'Content-Type': 'application/json',
-      ...additionalHeaders
+      ...additionalHeaders,
     },
-    jsonBody: data
+    jsonBody: data,
   };
 }
 
@@ -229,12 +259,16 @@ export function performSecurityChecks(
   maxRequestsPerWindow: number = 100
 ): void {
   // レート制限チェック
-  const clientIp = request.headers.get('x-forwarded-for') || 
-                   request.headers.get('x-real-ip') || 
-                   'unknown';
-  
+  const clientIp =
+    request.headers.get('x-forwarded-for') ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
+
   if (!checkRateLimit(clientIp, maxRequestsPerWindow)) {
-    throw new ValidationError([], 'レート制限に達しました。しばらく待ってから再試行してください。');
+    throw new ValidationError(
+      [],
+      'レート制限に達しました。しばらく待ってから再試行してください。'
+    );
   }
 
   // User-Agentの基本チェック（自動化ツール検出）
@@ -245,7 +279,8 @@ export function performSecurityChecks(
 
   // Content-Lengthの妥当性チェック
   const contentLength = request.headers.get('content-length');
-  if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) { // 10MB制限
+  if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
+    // 10MB制限
     throw new ValidationError([], 'リクエストサイズが制限を超えています');
   }
 }
