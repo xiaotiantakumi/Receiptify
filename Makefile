@@ -112,8 +112,8 @@ start-azurite:
 	@echo "  Queue Storage: http://127.0.0.1:10001"
 	@mkdir -p azurite-data
 	docker-compose up -d azurite
-	@echo "  ⏱️  Waiting 10 seconds for Azurite to fully initialize..."
-	@sleep 5
+	@echo "  ⏱️  Waiting for Azurite to initialize..."
+	@sleep 5 # コンテナ起動後に `docker ps` で存在確認を行うため、ここの待ち時間は短く設定
 	@echo "  ✅ Verifying Azurite container is running..."
 	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
 	@echo "🔧 Setting up CORS for Azurite..."

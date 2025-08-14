@@ -152,10 +152,12 @@ make start-azurite # Azuriteのみ
 
 **⚠️ 重要：Azurite CORS設定**
 
-`docker compose up` でAzuriteを起動した後、必ず以下のスクリプトを実行してください：
+`make start-azurite` や `make start-all` を使用する場合、CORS設定は**自動的に行われます。**
+
+もし `docker compose up -d azurite` などで手動でAzuriteを起動した場合のみ、以下のスクリプトを実行してCORS設定を行う必要があります。
 
 ```bash
-# AzuriteのCORS設定（必須）
+# AzuriteのCORS設定（手動起動時に必要）
 ./set-azurite-cors.sh
 ```
 

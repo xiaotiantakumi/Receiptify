@@ -57,7 +57,7 @@ export function extractUserFromAuth(
 
   // x-ms-client-principalがない場合、Cookieから認証情報を取得
   if (!clientPrincipalHeader) {
-    console.log('cookieHeaderから認証情報を取得');
+    context.log('x-ms-client-principal header not found. Attempting to get auth info from cookie.');
     const cookieHeader = request.headers.get('cookie');
     if (cookieHeader) {
       const authCookieMatch = cookieHeader.match(
