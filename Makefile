@@ -112,6 +112,13 @@ start-azurite:
 	@echo "  Queue Storage: http://127.0.0.1:10001"
 	@mkdir -p azurite-data
 	docker-compose up -d azurite
+	@echo "  ⏱️  Waiting for Azurite to initialize..."
+	@sleep 5 # コンテナ起動後に `docker ps` で存在確認を行うため、ここの待ち時間は短く設定
+	@echo "  ✅ Verifying Azurite container is running..."
+	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
+	@echo "🔧 Setting up CORS for Azurite..."
+	./set-azurite-cors.sh
+	@echo "✅ CORS setup complete"
 
 # Stop Azurite Docker container
 stop-azurite:
@@ -132,7 +139,7 @@ stop-all:
 	@echo "✅ All services stopped"
 
 # Start all services (SWA + Blob Functions + Azurite)
-start-all: stop-all
+start-all: stop-all build
 	@echo "🚀 Starting all services with extended wait times..."
 	@echo "  ⏱️  Waiting 5 seconds after cleanup..."
 	@sleep 5
@@ -157,6 +164,9 @@ start-all: stop-all
 	@sleep 10
 	@echo "  ✅ Verifying Azurite container is running..."
 	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
+	@echo "🔧 Setting up CORS for Azurite..."
+	./set-azurite-cors.sh
+	@echo "✅ CORS setup complete"
 	@echo "🔧 Starting API server on port 7071..."
 	cd api && npm run start &
 	@echo "  ⏱️  Waiting 8 seconds for API server to start..."

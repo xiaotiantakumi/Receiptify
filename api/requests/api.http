@@ -5,19 +5,47 @@ GET http://localhost:7071/api/health
 GET http://localhost:7071/api/get-receipt-results?userId=your-user-id
 
 ### Issue SAS Token
-POST http://localhost:7071/api/issue-sas-token
+POST http://localhost:4280/api/issue-sas-token
+Accept: */*
+Accept-Language: ja,en-US;q=0.9,en;q=0.8
+Connection: keep-alive
 Content-Type: application/json
-
-{
-  "fileName": "test-receipt.jpg",
-  "userId": "1234567890"
-}
+Origin: http://localhost:4280
+Referer: http://localhost:4280/
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: cors
+Sec-Fetch-Site: same-origin
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+Cookie: ph_phc_SBLpZVAB6jmHOct9CABq3PF0Yn5FU3G2FgT4xUr2XrT_posthog=%7B%22distinct_id%22%3A%2201964cae-97fb-7ee5-8c4a-45567cddbb3a%22%2C%22%24sesid%22%3A%5B1745977420657%2C%220196845d-1212-71bd-b228-f5f6b780528f%22%2C1745977414162%5D%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22%24direct%22%2C%22u%22%3A%22http%3A%2F%2Flocalhost%3A4111%2Fagents%22%7D%7D; locale=ja-JP; StaticWebAppsAuthCookie=eyJ1c2VySWQiOiIzMzk4ZDNkYmJjMTVlOTdkMjhlZjc4YWViZDk5ZjZmMyIsInVzZXJSb2xlcyI6WyJhbm9ueW1vdXMiLCJhdXRoZW50aWNhdGVkIl0sImNsYWltcyI6W10sImlkZW50aXR5UHJvdmlkZXIiOiJhYWQiLCJ1c2VyRGV0YWlscyI6ImhvZ2UifQ==
 
 ### Process Receipt
+# sigには上記リクエストで取得したsas tokenを入れる
 POST http://localhost:7071/api/processReceipt
 Content-Type: application/json
 
 {
-  "blobName": "your-user-id/your-receipt-id/receipt-timestamp.jpg",
-  "userId": "your-user-id"
+  "url": "http://127.0.0.1:10000/devstoreaccount1/receipts/3398d3dbbc15e97d28ef78aebd99f6f3/2025/76d6eb87-ff7c-4a77-a67a-b02b28f21b26/receipt-2025-08-14T01-56-46-156Z.jpg",
+  "method": "PUT",
+  "headers": {
+    "sec-ch-ua-platform": "macOS",
+    "Referer": "http://localhost:4280/",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+    "sec-ch-ua": "\"Not;A=Brand\";v=\"99\", \"Google Chrome\";v=\"139\", \"Chromium\";v=\"139\"",
+    "Content-Type": "image/jpeg",
+    "x-ms-blob-type": "BlockBlob",
+    "sec-ch-ua-mobile": "?0"
+  },
+  "queryParams": {
+    "sv": "2025-07-05",
+    "st": "2025-08-14T01:56:46Z",
+    "se": "2025-08-14T02:56:46Z",
+    "sr": "c",
+    "sp": "rcw",
+    "sig": ""
+  },
+  "blobName": "receipts/3398d3dbbc15e97d28ef78aebd99f6f3/2025/76d6eb87-ff7c-4a77-a67a-b02b28f21b26/receipt-2025-08-14T01-56-46-156Z.jpg",
+  "userId": "3398d3dbbc15e97d28ef78aebd99f6f3"
 }
