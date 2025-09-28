@@ -1,7 +1,7 @@
 # Receiptify Makefile
 # Quick start commands for development and deployment
 
-.PHONY: help install build dev start clean test lint check deploy install-blob start-blob build-blob start-all stop-all install-azurite start-azurite stop-azurite demo-storage test-table demo-data
+.PHONY: help install build dev start start-minimal clean test lint check deploy install-blob start-blob build-blob stop-all install-azurite start-azurite stop-azurite demo-storage test-table demo-data
 
 # Default target
 help:
@@ -15,11 +15,11 @@ help:
 	@echo "Development:"
 	@echo "  make dev         - Start frontend development server"
 	@echo "  make api         - Start API development server" 
-	@echo "  make start       - Start integrated environment (SWA CLI)"
+	@echo "  make start       - Start all services (SWA + Blob Functions + Azurite)"
+	@echo "  make start-minimal - Start minimal environment (SWA CLI + API only, no Docker)"
 	@echo "  make start-blob  - Start Blob Functions development server"
 	@echo "  make start-azurite - Start Azurite (local Azure Storage emulator)"
 	@echo "  make stop-azurite  - Stop Azurite Docker container"
-	@echo "  make start-all   - Start all services (SWA + Blob Functions + Azurite)"
 	@echo "  make stop-all    - Stop all services (SWA CLI, Blob Functions, Azurite)"
 	@echo ""
 	@echo "Build & Test:"
@@ -34,6 +34,7 @@ help:
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean       - Clean build artifacts"
+	@echo "  make cleanup-all - Comprehensive cleanup of all services and containers"
 	@echo ""
 	@echo "Table Storage & Testing:"
 	@echo "  make demo-storage - Start Azurite + create dummy data for Storage Explorer"
@@ -92,11 +93,78 @@ kill-ports:
 	@lsof -ti:10002 | xargs kill -9 2>/dev/null || echo "  Port 10002 (Azurite Table) is clear"
 	@echo "✅ Port cleanup complete"
 
-# Start integrated environment
-start: kill-ports
-	@echo "🚀 Starting integrated environment (SWA CLI)..."
+# Comprehensive cleanup utility
+cleanup-all:
+	@echo "🧹 Comprehensive cleanup of all services..."
+	@echo "  🔪 Killing processes on development ports..."
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || echo "    Port 3000 is clear"
+	@lsof -ti:4280 | xargs kill -9 2>/dev/null || echo "    Port 4280 is clear"
+	@lsof -ti:7071 | xargs kill -9 2>/dev/null || echo "    Port 7071 is clear"
+	@lsof -ti:7072 | xargs kill -9 2>/dev/null || echo "    Port 7072 is clear"
+	@lsof -ti:10000 | xargs kill -9 2>/dev/null || echo "    Port 10000 (Azurite Blob) is clear"
+	@lsof -ti:10001 | xargs kill -9 2>/dev/null || echo "    Port 10001 (Azurite Queue) is clear"
+	@lsof -ti:10002 | xargs kill -9 2>/dev/null || echo "    Port 10002 (Azurite Table) is clear"
+	@echo "  🐳 Stopping and removing all Azurite containers..."
+	@docker ps -a --filter "name=azurite" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker stop 2>/dev/null || echo "    No Azurite containers to stop"
+	@docker ps -a --filter "name=azurite" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker rm 2>/dev/null || echo "    No Azurite containers to remove"
+	@echo "  🐳 Stopping receiptify-azurite container specifically..."
+	@docker stop receiptify-azurite 2>/dev/null || echo "    receiptify-azurite container not running"
+	@docker rm receiptify-azurite 2>/dev/null || echo "    receiptify-azurite container not found"
+	@echo "  🐳 Stopping any containers using Azurite ports..."
+	@docker ps -a --filter "publish=10000-10002" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker stop 2>/dev/null || echo "    No containers using Azurite ports"
+	@docker ps -a --filter "publish=10000-10002" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker rm 2>/dev/null || echo "    No containers using Azurite ports to remove"
+	@echo "✅ Comprehensive cleanup complete"
+
+# Start integrated environment (SWA + Blob Functions + Azurite)
+start: cleanup-all build
+	@echo "🚀 Starting all services with extended wait times..."
+	@echo "  ⏱️  Waiting 5 seconds after cleanup..."
+	@sleep 5
+	@echo "📁 Creating Azurite data directory..."
+	@mkdir -p azurite-data
+	@echo "🐳 Starting Azurite (local Azure Storage emulator) with Docker..."
+	@echo "  🔍 Checking Docker daemon status..."
+	@docker info > /dev/null 2>&1 || (echo "" && \
+		echo "❌ Docker daemon not running. Please start Docker Desktop first." && \
+		echo "" && \
+		echo "💡 Alternative: Use 'make start-minimal' for development without Docker dependencies" && \
+		echo "   This starts SWA CLI + API only (sufficient for authentication testing)" && \
+		echo "" && \
+		echo "📋 To fix this error:" && \
+		echo "   1. Start Docker Desktop application" && \
+		echo "   2. Wait for Docker to fully initialize" && \
+		echo "   3. Run 'make start' again" && \
+		echo "" && \
+		exit 1)
+	docker-compose up -d azurite
+	@echo "  ⏱️  Waiting 10 seconds for Azurite to fully initialize..."
+	@sleep 10
+	@echo "  ✅ Verifying Azurite container is running..."
+	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
+	@echo "🔧 Setting up CORS for Azurite..."
+	./set-azurite-cors.sh
+	@echo "✅ CORS setup complete"
+	@echo "🔧 Starting API server on port 7071..."
+	cd api && npm run start &
+	@echo "  ⏱️  Waiting 8 seconds for API server to start..."
+	@sleep 8
+	@echo "🔗 Starting Blob Functions on port 7072..."
+	cd functions-blob && FUNCTIONS_CUSTOMHANDLER_PORT=7072 npm run start &
+	@echo "  ⏱️  Waiting 5 seconds for Blob Functions to start..."
+	@sleep 5
+	@echo "🌐 Starting SWA CLI..."
+	npm run swa:all
+
+# Start minimal environment (SWA CLI + API only, no Docker)
+start-minimal: kill-ports
+	@echo "🚀 Starting minimal environment (SWA CLI + API only)..."
 	@echo "  ⏱️  Waiting 3 seconds after port cleanup..."
 	@sleep 3
+	@echo "🔧 Starting API server on port 7071..."
+	cd api && npm run start &
+	@echo "  ⏱️  Waiting 5 seconds for API server to start..."
+	@sleep 5
+	@echo "🌐 Starting SWA CLI..."
 	npm run swa:all
 
 # Start Blob Functions development server
@@ -136,47 +204,14 @@ stop-all:
 	@lsof -ti:7072 | xargs kill -9 2>/dev/null || echo "    Port 7072 (Blob Functions) is clear"
 	@echo "  🐳 Stopping Docker containers..."
 	@docker-compose stop azurite 2>/dev/null || echo "    Azurite was not running"
+	@echo "  🐳 Stopping all Azurite containers..."
+	@docker ps -a --filter "name=azurite" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker stop 2>/dev/null || echo "    No Azurite containers to stop"
+	@docker ps -a --filter "name=azurite" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker rm 2>/dev/null || echo "    No Azurite containers to remove"
+	@echo "  🐳 Stopping containers using Azurite ports..."
+	@docker ps -a --filter "publish=10000-10002" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker stop 2>/dev/null || echo "    No containers using Azurite ports"
+	@docker ps -a --filter "publish=10000-10002" --format "table {{.Names}}" | grep -v NAMES | xargs -r docker rm 2>/dev/null || echo "    No containers using Azurite ports to remove"
 	@echo "✅ All services stopped"
 
-# Start all services (SWA + Blob Functions + Azurite)
-start-all: stop-all build
-	@echo "🚀 Starting all services with extended wait times..."
-	@echo "  ⏱️  Waiting 5 seconds after cleanup..."
-	@sleep 5
-	@echo "📁 Creating Azurite data directory..."
-	@mkdir -p azurite-data
-	@echo "🐳 Starting Azurite (local Azure Storage emulator) with Docker..."
-	@echo "  🔍 Checking Docker daemon status..."
-	@docker info > /dev/null 2>&1 || (echo "" && \
-		echo "❌ Docker daemon not running. Please start Docker Desktop first." && \
-		echo "" && \
-		echo "💡 Alternative: Use 'make start' for development without Docker dependencies" && \
-		echo "   This starts SWA CLI + API only (sufficient for authentication testing)" && \
-		echo "" && \
-		echo "📋 To fix this error:" && \
-		echo "   1. Start Docker Desktop application" && \
-		echo "   2. Wait for Docker to fully initialize" && \
-		echo "   3. Run 'make start-all' again" && \
-		echo "" && \
-		exit 1)
-	docker-compose up -d azurite
-	@echo "  ⏱️  Waiting 10 seconds for Azurite to fully initialize..."
-	@sleep 10
-	@echo "  ✅ Verifying Azurite container is running..."
-	@docker ps | grep receiptify-azurite > /dev/null || (echo "❌ Azurite failed to start" && exit 1)
-	@echo "🔧 Setting up CORS for Azurite..."
-	./set-azurite-cors.sh
-	@echo "✅ CORS setup complete"
-	@echo "🔧 Starting API server on port 7071..."
-	cd api && npm run start &
-	@echo "  ⏱️  Waiting 8 seconds for API server to start..."
-	@sleep 8
-	@echo "🔗 Starting Blob Functions on port 7072..."
-	cd functions-blob && FUNCTIONS_CUSTOMHANDLER_PORT=7072 npm run start &
-	@echo "  ⏱️  Waiting 5 seconds for Blob Functions to start..."
-	@sleep 5
-	@echo "🌐 Starting SWA CLI..."
-	npm run swa:all
 
 # Build everything
 build:
